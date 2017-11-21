@@ -1,0 +1,15 @@
+{
+  "zendesk": {
+  "subdomain": "confluent",
+  "user": "zendesk@user.com",
+  "password": "secret",
+  "maxrequests" : 10
+  },
+  "database": {
+  "type": "mysql",
+  "port": 3306,
+  "hostname" : "127.0.0.1",
+  "user": "zendb",
+  "password": "password"
+  }
+}
