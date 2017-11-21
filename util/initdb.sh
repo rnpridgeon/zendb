@@ -16,12 +16,12 @@ configure() {
 	SQL="$(realpath ../scripts)"
 
 	# Read configuration file 
-	newProperties ../exclude/dbconf.json
+	newProperties ../exclude/conf.json
 
-	USR=$(getProperty '.user')
-	PWD=$(getProperty '.password')
-	HOST=$(getProperty '.hostname')
-	PORT=$(getProperty '.port')
+	USR=$(getProperty '.database.user')
+	PWD=$(getProperty '.database.password')
+	HOST=$(getProperty '.database.hostname')
+	PORT=$(getProperty '.database.port')
 }
 
 # start(void): Starts the requested database service 

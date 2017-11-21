@@ -1,9 +1,8 @@
 {
   "zendesk": {
-  "subdomain": "confluent",
+  "subdomain": "company",
   "user": "zendesk@user.com",
-  "password": "secret",
-  "maxrequests" : 10
+  "password": "secret"
   },
   "database": {
   "type": "mysql",

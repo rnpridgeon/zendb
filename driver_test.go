@@ -11,7 +11,6 @@ import (
 	"fmt"
 )
 
-
 // TODO: make provider interface
 var (
 	conf Config
