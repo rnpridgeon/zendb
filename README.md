@@ -9,11 +9,14 @@ Simple tool which extract data from Zendesk and places it into a relational data
 There is not currently any documentation available as I am still fleshing out the details and retooling things where necessary. There is however a handy script under /utils which will set up 
 
 # Dependencies 
-Go 1.9 *This is the only version it has been tested on. 
+
+-Go 1.9 *This is the only version it has been tested on. 
   `brew install go`
-mysql driver: 
+
+-mysql driver: 
   `go get -u github.com/go-sql-driver/mysql`
-mysql: 
+
+-mysql: 
   `brew install mysql`
 
 There is a utility script for using mysql docker as well 
