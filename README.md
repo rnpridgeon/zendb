@@ -4,11 +4,11 @@
 
 ### !!Work in progress!! ###
 
-Simple tool which extract data from Zendesk and places it into a relational database, mysql in this case. This makes it easier to extend upon the platform with custom tooling to make workflows and reporting easier. 
+Simple which extracts from data Zendesk and places it into a relational database; mysql in this case. When complete this will provide the means for extending Zendesk to enhance workflows. This also simplifies reporting a bit as I am not incredibly fond of the existing tooling. 
 
-There is not currently any documentation available as I am still fleshing out the details and retooling things where necessary. There is however a handy script under /utils which will set up 
+Documentation to follow project completion, in the meantime driver_test.go touches everyhing. 
 
-# Dependencies 
+# Dependencies ( Assumes Mac OS, no low-level libraries were used so it should be fairly portable) 
 
 -Go 1.9 *This is the only version it has been tested on. 
   `brew install go`
@@ -29,5 +29,4 @@ Assuming you have all the depenencies in place and admin rights within zendesk e
 
 `./util/setup.sh` 
 
-Answer some questions, wait. There is some junk in ZD from tickets/users being deleted and moved around. This causes a few key constraint errors to be thrown; this is true of for bulk imports as well. Zendesk's export functinality includes all assets which have changed since the start-date, as a result you get both new and updated object. This will be cleaned up in later. 
-
+Answer some questions, wait. Once populated you can execute `/util/initdb.sh -q mysql` for an example of how to connect using the mysql client. 
