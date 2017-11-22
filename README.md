@@ -25,12 +25,9 @@ Docker:
 
 # Set-up (Assumes use of docker)
  
-1. Create a folder in the project directory named `./exclusive`
-2. Edit `expampleConfiguration.json` with appropriate values
-3. Save `exampleConfiguration.json` as `./exclusive/conf.json`
-4. execute `./utils/initdb -s mysql`
-5. Once start-up has completed you can run go test to populate the tables
+Assuming you have all the depenencies in place and admin rights within zendesk execute the following from the project's root directory. 
 
-This will obviously change in the future however it should be enough to get you started. 
+`./util/setup.sh` 
 
-Documentation will be updated as it's made useful for purposes other than future development 
+Answer some questions, wait. There is some junk in ZD from tickets/users being deleted and moved around. This causes a few key constraint errors to be thrown; this is true of for bulk imports as well. Zendesk's export functinality includes all assets which have changed since the start-date, as a result you get both new and updated object. This will be cleaned up in later. 
+
