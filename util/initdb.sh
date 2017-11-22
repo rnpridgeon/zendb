@@ -11,8 +11,6 @@ init () {
 }
 
 configure() {
-	echo $dir
-
 	SQL="$(realpath ../scripts)"
 
 	# Read configuration file 
@@ -111,7 +109,7 @@ main() {
                 exit 0;;
             d)  clean
                 exit 0;;
-			q)  query ${@:2}
+			q)  echo "mysql -u$USR -p$PWD -h $HOSTNAME -P $PORT -D zendb"
 				exit 0;;
             \?) echo -e $USAGE
                 exit 1;;

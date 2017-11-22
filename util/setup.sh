@@ -6,7 +6,7 @@ cd $self
 printf "Enter zendesk subdomain: "
 read domain
 
-printf "Enter user name: " 
+printf "Enter username: "
 read user
 
 printf "Enter password: "

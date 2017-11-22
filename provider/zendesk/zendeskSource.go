@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"fmt"
 
+	"log"
 )
 
 var (
@@ -44,6 +45,9 @@ func (r *ZDProvider) ListTicketFields(process func([]models.Ticket_field)) (last
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
 		resp, _ := httpClient.Do(r.Request)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("FATAL: Unable to contact zendesk: %s", resp.Status)
+		}
 		json.NewDecoder(resp.Body).Decode(&rezponze)
 		resp.Body.Close()
 
@@ -72,7 +76,9 @@ func (r *ZDProvider) ListTicketMetrics(process func([]models.Ticket_metrics)) (l
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
 		resp, _ := httpClient.Do(r.Request)
-
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("FATAL: Unable to contact zendesk: %s",resp.Status)
+		}
 		json.NewDecoder(resp.Body).Decode(&rezponze)
 		resp.Body.Close()
 
@@ -102,6 +108,10 @@ func (r *ZDProvider) ListGroups(process func([]models.Group)) (last int64) {
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
 		resp, _ := httpClient.Do(r.Request)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("FATAL: Unable to contact zendesk: %s",resp.Status)
+		}
+
 		json.NewDecoder(resp.Body).Decode(&rezponze)
 		resp.Body.Close()
 
@@ -130,6 +140,10 @@ func (r *ZDProvider) ExportOrganizations(since int64, process func([]models.Orga
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
 		resp, _ := httpClient.Do(r.Request)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("FATAL: Unable to contact zendesk: %s",resp.Status)
+		}
+
 		json.NewDecoder(resp.Body).Decode(&rezponze)
 		resp.Body.Close()
 
@@ -158,6 +172,9 @@ func (r *ZDProvider) ExportUsers(since int64, process func([]models.User)) (last
 	//iterate over pages, TODO: this needs to be moved out to keep things DRY
 	for {
 		resp, _ := httpClient.Do(r.Request)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("FATAL: Unable to contact zendesk: %s",resp.Status)
+		}
 
 		json.NewDecoder(resp.Body).Decode(&rezponze)
 		resp.Body.Close()
@@ -186,7 +203,11 @@ func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (
 
 	//iterate over pages, TODO: this needs to be moved out to keep things DRY
 	for {
-		resp, _ := httpClient.Do(r.Request)
+		resp, err := httpClient.Do(r.Request)
+		if resp.StatusCode != http.StatusOK {
+			log.Fatalf("FATAL: Unable to contact zendesk: %s",err)
+		}
+
 		json.NewDecoder(resp.Body).Decode(&rezponze)
 		resp.Body.Close()
 

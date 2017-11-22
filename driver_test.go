@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 	"fmt"
+	"time"
 )
 
 // TODO: make provider interface
@@ -75,8 +76,11 @@ func TestDataImport(t *testing.T) {
 	source.ListTicketFields(sink.ImportTicketFields)
 	source.ListGroups(sink.ImportGroups)
 	// Populate actual data
+	log.Printf("INFO: Fetching organization updates %v...\n", time.Unix(start["organization_export"],0))
 	sink.CommitSequence("organization_export", source.ExportOrganizations(start["organization_export"], sink.ImportOrganizations))
+	log.Printf("INFO: Fetching User updates since %v...\n",time.Unix(start["user_export"],0) )
 	sink.CommitSequence("user_export", source.ExportUsers(start["user_export"]+1, sink.ImportUsers))
+	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"],0))
 	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
 	source.ListTicketMetrics(sink.ImportTicketMetrics)
 	// Necessary evil until I have more time
