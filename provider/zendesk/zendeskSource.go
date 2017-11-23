@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"fmt"
-
 	"log"
 )
 
@@ -34,6 +33,15 @@ type ZDProvider struct {
 	*http.Request
 }
 
+func deserialize(request *http.Request, object interface{}) {
+	resp, _ := httpClient.Do(request)
+	if resp.StatusCode != http.StatusOK {
+		log.Fatalf("FATAL: Unable to fetch from fetch from %s: %s", request.URL, resp.Status)
+	}
+	json.NewDecoder(resp.Body).Decode(object)
+	resp.Body.Close()
+}
+
 func (r *ZDProvider) ListTicketFields(process func([]models.Ticket_field)) (last int64) {
 	r.URL, _ = r.URL.Parse("./ticket_fields.json")
 
@@ -44,12 +52,7 @@ func (r *ZDProvider) ListTicketFields(process func([]models.Ticket_field)) (last
 
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
-		resp, _ := httpClient.Do(r.Request)
-		if resp.StatusCode != http.StatusOK {
-			log.Fatalf("FATAL: Unable to contact zendesk: %s", resp.Status)
-		}
-		json.NewDecoder(resp.Body).Decode(&rezponze)
-		resp.Body.Close()
+		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
 		if rezponze.Next != "" {
@@ -75,15 +78,9 @@ func (r *ZDProvider) ListTicketMetrics(process func([]models.Ticket_metrics)) (l
 
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
-		resp, _ := httpClient.Do(r.Request)
-		if resp.StatusCode != http.StatusOK {
-			log.Fatalf("FATAL: Unable to contact zendesk: %s",resp.Status)
-		}
-		json.NewDecoder(resp.Body).Decode(&rezponze)
-		resp.Body.Close()
+		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
-
 		if rezponze.Next != "" {
 			r.URL, _ = r.URL.Parse(rezponze.Next)
 			rezponze.Next = ""
@@ -107,13 +104,7 @@ func (r *ZDProvider) ListGroups(process func([]models.Group)) (last int64) {
 
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
-		resp, _ := httpClient.Do(r.Request)
-		if resp.StatusCode != http.StatusOK {
-			log.Fatalf("FATAL: Unable to contact zendesk: %s",resp.Status)
-		}
-
-		json.NewDecoder(resp.Body).Decode(&rezponze)
-		resp.Body.Close()
+		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
 		if rezponze.Next != "" {
@@ -139,13 +130,7 @@ func (r *ZDProvider) ExportOrganizations(since int64, process func([]models.Orga
 
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
-		resp, _ := httpClient.Do(r.Request)
-		if resp.StatusCode != http.StatusOK {
-			log.Fatalf("FATAL: Unable to contact zendesk: %s",resp.Status)
-		}
-
-		json.NewDecoder(resp.Body).Decode(&rezponze)
-		resp.Body.Close()
+		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
 		if rezponze.Count >= 1000 {
@@ -171,13 +156,7 @@ func (r *ZDProvider) ExportUsers(since int64, process func([]models.User)) (last
 
 	//iterate over pages, TODO: this needs to be moved out to keep things DRY
 	for {
-		resp, _ := httpClient.Do(r.Request)
-		if resp.StatusCode != http.StatusOK {
-			log.Fatalf("FATAL: Unable to contact zendesk: %s",resp.Status)
-		}
-
-		json.NewDecoder(resp.Body).Decode(&rezponze)
-		resp.Body.Close()
+		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
 		if rezponze.Count >= 1000 {
@@ -196,6 +175,7 @@ func (r *ZDProvider) ExportUsers(since int64, process func([]models.User)) (last
 func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (last int64) {
 	r.URL, _ = r.URL.Parse(fmt.Sprintf("./incremental/tickets.json?start_time=%s",
 		strconv.FormatInt(since, 10)))
+
 	var rezponze struct {
 		pager
 		Payload []models.Ticket `json:"tickets"`
@@ -203,14 +183,7 @@ func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (
 
 	//iterate over pages, TODO: this needs to be moved out to keep things DRY
 	for {
-		resp, err := httpClient.Do(r.Request)
-		if resp.StatusCode != http.StatusOK {
-			log.Fatalf("FATAL: Unable to contact zendesk: %s",err)
-		}
-
-		json.NewDecoder(resp.Body).Decode(&rezponze)
-		resp.Body.Close()
-
+		deserialize(r.Request, &rezponze)
 		process(rezponze.Payload)
 
 		if rezponze.Count >= 1000 {

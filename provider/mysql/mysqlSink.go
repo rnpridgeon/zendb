@@ -68,6 +68,7 @@ func (p *MysqlProvider) update() {
 	}
 
 	rows, err := p.dbClient.Query(qry)
+	defer rows.Close()
 
 	if err != nil {
 		log.Println(err)
@@ -79,6 +80,7 @@ func (p *MysqlProvider) update() {
 		rows.Scan(&k, &v)
 		p.state[k] = v
 	}
+
 }
 
 // Admittedly unsafe but necessary for the time being
@@ -87,8 +89,6 @@ func (p *MysqlProvider) ExecRaw(qry string) int64 {
 	ret, _ := results.RowsAffected()
 	return ret
 }
-
-// TODO: make method signature for insert and update prepared statements similar so we can provide upsert support
 
 // Build prepared query string, TODO: templates are probably a smarter way to handle this
 func registerInsert(entity string, cols []string) string {
@@ -112,7 +112,7 @@ func registerInsert(entity string, cols []string) string {
 	return inserts[entity]
 }
 
-// Build prepared query string, TODO: this can be worked into register with a little bit of branching
+// Build prepared query string, TODO: this can be worked into registerImport
 func buildUpdate(entity string, cols []string, conditional string) string {
 	buff.Lock()
 	defer buff.Unlock()

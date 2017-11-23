@@ -17,7 +17,7 @@ configure() {
 	newProperties ../exclude/conf.json
 
 	USR=$(getProperty '.database.user')
-	PWD=$(getProperty '.database.password')
+	PAS=$(getProperty '.database.password')
 	HOST=$(getProperty '.database.hostname')
 	PORT=$(getProperty '.database.port')
 }
@@ -29,7 +29,7 @@ start() {
 	docker run --detach --name=test-mysql -p 3306:$PORT \
 		-e "MYSQL_ROOT_PASSWORD=password" \
 		-e "MYSQL_USER=$USR" \
-		-e "MYSQL_PASSWORD=$PWD" \
+		-e "MYSQL_PASSWORD=$PAS" \
 		-v $SQL:/docker-entrypoint-initdb.d \
 		$TAG --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci >/dev/null 
 	fatal $? "FATAL: database container failed to start"
@@ -49,7 +49,7 @@ start() {
 
 		sleep 5;
 	
-		mysql -u$USR -p$PWD -h $HOSTNAME -P $PORT -e '\s' 2>/dev/null
+		mysql -u$USR -p$PAS -h $HOSTNAME -P $PORT -e '\s' 2>/dev/null
 
 		complete=$?
 		timer=$(($timer + 5))
@@ -65,7 +65,7 @@ inspect() {
 # test(void): Runs simple query to ensure functionality 
 test() {
 	echo "Running smoke test ..."
-	mysql -u$USR -p$PWD -h $HOSTNAME -P $PORT -e 'use zendb; show tables' &>/dev/null
+	mysql -u$USR -p$PAS -h $HOSTNAME -P $PORT -e 'use zendb; show tables' &>/dev/null
 	fatal $? "Database failed sanity check"
 	echo "Database start-up complete"
 }
@@ -83,7 +83,7 @@ clean() {
 query() {
 	configure
 	local qry="$@"
-	mysql -u$USR -p$PWD -h $HOSTNAME -P $PORT -e "use zendb; $qry"
+	mysql -u$USR -p$PAS -h $HOSTNAME -P $PORT -e "use zendb; $qry"
 }
 
 # sanity check, both query and start require 2 configs, stop has to live with it
@@ -105,11 +105,12 @@ main() {
                 start
 				inspect
 				test
-				echo "Access at: mysql -u$USR -p$PWD -h $HOSTNAME -P $PORT -D zendb -e 'query string'"
+				echo "Access at: mysql -u$USR -p$PAS -h $HOSTNAME -P $PORT -D zendb -e 'query string'"
                 exit 0;;
             d)  clean
                 exit 0;;
-			q)  echo "mysql -u$USR -p$PWD -h $HOSTNAME -P $PORT -D zendb"
+			q)	init $@
+				echo "mysql -u$USR -p$PAS -h $HOSTNAME -P $PORT -D zendb"
 				exit 0;;
             \?) echo -e $USAGE
                 exit 1;;

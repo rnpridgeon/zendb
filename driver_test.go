@@ -79,7 +79,7 @@ func TestDataImport(t *testing.T) {
 	log.Printf("INFO: Fetching organization updates %v...\n", time.Unix(start["organization_export"],0))
 	sink.CommitSequence("organization_export", source.ExportOrganizations(start["organization_export"], sink.ImportOrganizations))
 	log.Printf("INFO: Fetching User updates since %v...\n",time.Unix(start["user_export"],0) )
-	sink.CommitSequence("user_export", source.ExportUsers(start["user_export"]+1, sink.ImportUsers))
+	sink.CommitSequence("user_export", source.ExportUsers(start["user_export"], sink.ImportUsers))
 	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"],0))
 	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
 	source.ListTicketMetrics(sink.ImportTicketMetrics)
