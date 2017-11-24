@@ -2,7 +2,7 @@ package zendesk
 
 import (
 	"github.com/rnpridgeon/zendb/models"
-	"encoding/json"
+	"github.com/json-iterator/go"
 	"net/http"
 	"strconv"
 	"fmt"
@@ -12,6 +12,7 @@ import (
 var (
 	httpClient *http.Client
 	header     http.Header
+	json = jsoniter.ConfigCompatibleWithStandardLibrary
 )
 
 type pager struct {
@@ -38,7 +39,11 @@ func deserialize(request *http.Request, object interface{}) {
 	if resp.StatusCode != http.StatusOK {
 		log.Fatalf("FATAL: Unable to fetch from fetch from %s: %s", request.URL, resp.Status)
 	}
-	json.NewDecoder(resp.Body).Decode(object)
+
+	if err := json.NewDecoder(resp.Body).Decode(object); err != nil {
+		log.Printf("Failed to fetch from %s: \n\t%s)", request.URL, err)
+	}
+
 	resp.Body.Close()
 }
 
@@ -55,6 +60,7 @@ func (r *ZDProvider) ListTicketFields(process func([]models.Ticket_field)) (last
 		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
+
 		if rezponze.Next != "" {
 			r.URL, _ = r.URL.Parse(rezponze.Next)
 			rezponze.Next = ""
@@ -184,8 +190,8 @@ func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (
 	//iterate over pages, TODO: this needs to be moved out to keep things DRY
 	for {
 		deserialize(r.Request, &rezponze)
-		process(rezponze.Payload)
 
+		process(rezponze.Payload)
 		if rezponze.Count >= 1000 {
 			r.URL, _ = r.URL.Parse(rezponze.Next)
 			rezponze.Next = ""

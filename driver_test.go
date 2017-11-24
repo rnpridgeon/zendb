@@ -69,8 +69,18 @@ func testDataLoad() {
 	fmt.Println(sink.FetchState())
 }
 
+func TestScheduled(t *testing.T) {
+	scheduler := NewScheduler(1 * MINUTE, ProcessAll)
+	// Kill scheduler after 9 minutes
+	go func() {
+		time.Sleep( 1 * MINUTE)
+		scheduler.Stop()
+	}()
+	scheduler.Start()
+}
+
 // Attempt to populate the DB with all that ZD goodness
-func TestDataImport(t *testing.T) {
+func ProcessAll() {
 	start := sink.FetchState()
 	// Initialize Meta tables
 	source.ListTicketFields(sink.ImportTicketFields)

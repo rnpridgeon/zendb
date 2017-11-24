@@ -75,8 +75,8 @@ type Ticket_field struct {
 	Tag                   string                 `json:"tag"`
 	Created_at            *time.Time             `json:"created_at"`
 	Updated_at            *time.Time             `json:"updated_at"`
-	System_field_options  map[string]interface{} `json:"system_field_options"`
-	Custom_field_options  map[string]string      `json:"custom_field_options"`
+	System_field_options  map[string]interface{} `json:"-"`
+	Custom_field_options  map[string]string      `json:"-"`
 	Removable             bool                   `json:"removable"`
 }
 
