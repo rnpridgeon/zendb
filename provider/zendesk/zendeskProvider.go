@@ -79,16 +79,18 @@ func (r *ZDProvider) ListTicketFields(process func([]models.Ticket_field)) (last
 	return rezponze.Payload[len(rezponze.Payload)-1].Id
 }
 
-func (r *ZDProvider) ExportTicketMetrics(since int64, end int64, process func([]models.Ticket_metrics)) (last int64) {
-	payload := make([]models.Ticket_metrics, end-since + 1)
+func (r *ZDProvider) ExportTicketMetrics(tickets []int64, process func([]models.Ticket_metrics)) (last int64) {
+	if len(tickets) == 0 { return 0 }
+
+	payload := make([]models.Ticket_metrics, len(tickets))
 
 	var rezponze struct {
 		Payload models.Ticket_metrics `json:"ticket_metric"`
 	}
 
-	var index int64
-	for index = 0; since < end; since++{
-		r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d/metrics.json", since))
+	var index int64 = 0
+	for ticket := range tickets {
+		r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d/metrics.json", ticket))
 
 		deserialize(r.Request, &rezponze)
 		if rezponze.Payload.Ticket_id > 0 {
@@ -101,8 +103,6 @@ func (r *ZDProvider) ExportTicketMetrics(since int64, end int64, process func([]
 	process(payload[:index])
 	return index
 }
-
-
 
 func (r *ZDProvider) ListGroups(process func([]models.Group)) (last int64) {
 	r.URL, _ = r.URL.Parse("./groups.json")
@@ -233,7 +233,7 @@ func (r *ZDProvider) ExportTicketAudits(since int64, process func([]models.Audit
 		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
-		if rezponze.Payload[0].Id < since || rezponze.Before_Cursor == "" {
+		if len(rezponze.Payload) > 0 && rezponze.Payload[0].Id < since || rezponze.Before_Cursor == "" {
 			break;
 		}
 		r.URL, _ = r.URL.Parse(rezponze.Before_URL)

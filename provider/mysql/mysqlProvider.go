@@ -12,17 +12,44 @@ import (
 	"strconv"
 )
 
+// targets
+const(
+	GROUPS = "groups"
+	ORGANIZATIONS = "organizations"
+	USERS = "users"
+	TICKETS = "tickets"
+	TICKET_FIELDS  = "ticket_fields"
+	TICKET_FIELD_VALUES = "ticket_metadata"
+	TICKET_METRICS  = "ticket_metrics"
+)
+
 const (
 	//TODO:move connection string to configuration so we can leverage domain sockets and TCP
 	dsn = "%v:%s@tcp(%s:%d)/zendb?charset=utf8"
 	sizeOf = "SELECT COUNT(1) from %s WHERE id > 0 AND updated_at >= %d;"
-	fetchOrganizations = "SELECT * FROM organizations WHERE name NOT LIKE '%%deleted%%' AND id > 0 AND updated_at >= %d ORDER BY name asc;"
-	fetchTickets = "SELECT * FROM %s WHERE updated_at >= %d AND status != 'deleted' ORDER BY organization_id ASC, id DESC"
-	fetchByOrganizationID = "SELECT * FROM %s WHERE updated_at >= %d AND status != 'deleted' AND organization_id = %d ORDER BY id DESC"
+
+	importGroups = ""
+	importOrganizations = ""
+	importUsers = ""
+	importTickets = ""
+	importTicketMetrics = ""
+	importTicketAudits = ""
+
+	updateGroups = ""
+	updateOrganizations = ""
+	updateUsers = ""
+	updateTickets = ""
 	updateTicketMetrics = "INSERT INTO ticket_metrics(ticket_metrics.id, ticket_metrics.created_at," +
 		"ticket_metrics.updated_at, ticket_metrics.ticket_id, ticket_metrics.replies, ticket_metrics.ttfr, ticket_metrics.solved_at)" +
-			" SELECT ?, ?, ?, ?, ?, ?, ? FROM tickets WHERE tickets.status IN ('solved', 'closed', 'deleted') AND id=?"
+		" SELECT ?, ?, ?, ?, ?, ?, ? FROM tickets WHERE tickets.status IN ('solved', 'closed', 'deleted') AND id=?"
+	updateTicketAudits = ""
+
+	fetchGroups =""
+	fetchOrganizations = "SELECT * FROM organizations WHERE name NOT LIKE '%%deleted%%' AND id > 0 AND updated_at >= %d ORDER BY name asc;"
+	fetchUsers = ""
+	fetchTickets = "SELECT * FROM tickets WHERE updated_at >= %d AND status != 'deleted' ORDER BY organization_id ASC, id DESC"
 )
+
 
 var (
 	buff    = stringBuffer{}
@@ -37,6 +64,7 @@ type stringBuffer struct {
 type MysqlProvider struct {
 	dbClient *sql.DB
 	state    map[string]int64
+	transformations map[string][]func(interface{})
 }
 
 type MysqlConfig struct {
@@ -60,7 +88,14 @@ func Open(conf *MysqlConfig) *MysqlProvider {
 		log.Fatal("Failed to opend database: ", err)
 	}
 
-	return &MysqlProvider{db, map[string]int64{"isDirty":1}}
+	return &MysqlProvider{
+		db,
+		map[string]int64{"isDirty":1},
+		make(map[string][]func(interface{}))}
+}
+
+func (p *MysqlProvider) RegisterTransformation(target string, fn func(interface{})) {
+		p.transformations[target] = append(p.transformations[target], fn)
 }
 
 func (p *MysqlProvider) FetchState() (state map[string]int64){
@@ -179,7 +214,6 @@ func (p *MysqlProvider) CommitSequence(name string, val int64) {
 
 //TODO: Reduce code redundancy
 func (p *MysqlProvider) ImportGroups(entities []models.Group) {
-	target := "groups"
 	fields := []string{"id", "name", "created_at", "updated_at"}
 
 	tx, _ := p.dbClient.Begin()
@@ -187,13 +221,18 @@ func (p *MysqlProvider) ImportGroups(entities []models.Group) {
 
 	var last int64 = 0
 
-	qry, found := inserts[target]
+	qry, found := inserts[GROUPS]
 	if !found {
-		qry = registerInsert(target, fields)
+		qry = registerInsert(GROUPS, fields)
 	}
 
 	stmt, _ := tx.Prepare(qry)
 	for _, e := range entities {
+
+		for _, f := range p.transformations[GROUPS] {
+			f(&e)
+		}
+
 		_, err := stmt.Exec(e.Id, e.Name, e.Created_at.Unix(), e.Updated_at.Unix())
 		if err != nil {
 			switch err.(*mysql.MySQLError).Number {
@@ -201,7 +240,7 @@ func (p *MysqlProvider) ImportGroups(entities []models.Group) {
 				p.updateGroup(tx,fields, e)
 				break
 			default:
-				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, target, err)
+				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, GROUPS, err)
 			}
 			continue
 		}
@@ -213,7 +252,7 @@ func (p *MysqlProvider) ImportGroups(entities []models.Group) {
 	stmt.Close()
 
 	tx.Commit()
-	p.CommitSequence(target, last)
+	p.CommitSequence(GROUPS, last)
 }
 
 func (p *MysqlProvider) UpdateGroup(updates []string, entity models.Group) {
@@ -221,10 +260,8 @@ func (p *MysqlProvider) UpdateGroup(updates []string, entity models.Group) {
 }
 
 func (p *MysqlProvider) updateGroup(tx *sql.Tx, updates []string, entity models.Group) {
-	target := "groups"
-
 	var stmt *sql.Stmt
-	qry := buildUpdate(target, updates[1:], "id")
+	qry := buildUpdate(GROUPS, updates[1:], "id")
 	if tx != nil {
 		stmt, _ = tx.Prepare(qry)
 	} else {
@@ -234,7 +271,7 @@ func (p *MysqlProvider) updateGroup(tx *sql.Tx, updates []string, entity models.
 	_, err := stmt.Exec(entity.Name, entity.Created_at.Unix(), entity.Updated_at.Unix(), entity.Id)
 
 	if err != nil {
-		log.Printf("SQLException: failed to update %v in %s: \n\t%s", entity.Id, target, err)
+		log.Printf("SQLException: failed to update %v in %s: \n\t%s", entity.Id, GROUPS, err)
 	}
 }
 
@@ -242,20 +279,24 @@ func (p *MysqlProvider) updateGroup(tx *sql.Tx, updates []string, entity models.
 func (p *MysqlProvider) ImportOrganizations(entities []models.Organization) {
 	defer  timeTrack(time.Now(), "Organization Import")
 
-	target := "organizations"
 	fields := []string{"id", "name", "created_at", "updated_at", "group_id"}
 	tx, _ := p.dbClient.Begin()
 	defer tx.Rollback()
 
 	var last int64 = 0
 
-	qry, found := inserts[target]
+	qry, found := inserts[ORGANIZATIONS]
 	if !found {
-		qry = registerInsert(target, fields)
+		qry = registerInsert(ORGANIZATIONS, fields)
 	}
 
 	stmt, _ := tx.Prepare(qry)
 	for _, e := range entities {
+
+		for _, f := range p.transformations[ORGANIZATIONS] {
+			f(&e)
+		}
+
 		_, err := stmt.Exec(e.Id, e.Name, e.Created_at.Unix(), e.Updated_at.Unix(), e.Group_id)
 		if err != nil {
 			switch err.(*mysql.MySQLError).Number {
@@ -263,7 +304,7 @@ func (p *MysqlProvider) ImportOrganizations(entities []models.Organization) {
 				p.updateOrganization(tx,fields, e)
 				break
 			default:
-				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, target, err)
+				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, ORGANIZATIONS, err)
 			}
 			continue
 		}
@@ -275,7 +316,7 @@ func (p *MysqlProvider) ImportOrganizations(entities []models.Organization) {
 	stmt.Close()
 
 	tx.Commit()
-	p.CommitSequence(target, last)
+	p.CommitSequence(ORGANIZATIONS, last)
 }
 
 func (p *MysqlProvider) UpdateOrganization(updates []string, entity models.Organization) {
@@ -283,11 +324,9 @@ func (p *MysqlProvider) UpdateOrganization(updates []string, entity models.Organ
 }
 
 func (p *MysqlProvider) updateOrganization(tx *sql.Tx, updates []string, entity models.Organization) {
-	target := "organizations"
-
 	var stmt *sql.Stmt
 	var err error
-	qry := buildUpdate(target, updates[1:], "id")
+	qry := buildUpdate(ORGANIZATIONS, updates[1:], "id")
 	if tx != nil {
 		stmt, err = tx.Prepare(qry)
 	} else {
@@ -297,23 +336,22 @@ func (p *MysqlProvider) updateOrganization(tx *sql.Tx, updates []string, entity 
 	_, err = stmt.Exec(entity.Name, entity.Created_at.Unix(), entity.Updated_at.Unix(), entity.Group_id, entity.Id)
 
 	if err != nil {
-		log.Printf("SQLException: failed to update %v in %s: \n\t%s",entity.Id, target, err)
+		log.Printf("SQLException: failed to update %v in %s: \n\t%s",entity.Id, ORGANIZATIONS, err)
 	}
 }
 
 func (p *MysqlProvider) ExportOrganizations(since int64) (entities []models.Organization) {
 	defer  timeTrack(time.Now(), "Organization export")
-	target := "organizations"
 
 	var count int
-	p.dbClient.QueryRow(fmt.Sprintf(sizeOf, target, since)).Scan(&count)
+	p.dbClient.QueryRow(fmt.Sprintf(sizeOf, ORGANIZATIONS, since)).Scan(&count)
 	entities = make([]models.Organization, count, count)
 
 	rows, err := p.dbClient.Query(fmt.Sprintf(fetchOrganizations, since))
 	defer rows.Close()
 
 	if err != nil {
-		log.Fatal("SQLException: failed to fetch from %s: %s", target, err)
+		log.Fatal("SQLException: failed to fetch from %s: %s", ORGANIZATIONS, err)
 	}
 
 	var (
@@ -338,7 +376,6 @@ func (p *MysqlProvider) ExportOrganizations(since int64) (entities []models.Orga
 func (p *MysqlProvider) ImportUsers(entities []models.User) {
 	defer  timeTrack(time.Now(), "User import")
 
-	target := "users"
 	fields := []string{"id", "email", "name", "created_at", "organization_id",
 		"default_group_id", "role", "time_zone", "updated_at"}
 
@@ -347,33 +384,40 @@ func (p *MysqlProvider) ImportUsers(entities []models.User) {
 
 	var last int64 = 0
 
-	qry, found := inserts[target]
+	qry, found := inserts[USERS]
 	if !found {
-		qry = registerInsert(target, fields)
+		qry = registerInsert(USERS, fields)
 	}
 
 	stmt, _ := tx.Prepare(qry)
 	for _, e := range entities {
+
+		for _, f := range p.transformations[USERS] {
+			f(&e)
+		}
+
 		_, err := stmt.Exec(e.Id, e.Email, e.Name, e.Created_at.Unix(), e.Organization_id,
 			e.Default_group_id, e.Role, e.Time_zone, e.Updated_at.Unix())
+
 		if err != nil {
 			switch err.(*mysql.MySQLError).Number {
 			case 1062:
 				p.updateUser(tx,fields, e)
 				break
 			default:
-				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, target, err)
+				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, USERS, err)
 			}
 			continue
 		}
+
 		if e.Id > last {
 			last = e.Id
 		}
 	}
-	stmt.Close()
 
+	stmt.Close()
 	tx.Commit()
-	p.CommitSequence(target, last)
+	p.CommitSequence(USERS, last)
 }
 
 func (p *MysqlProvider) UpdateUser(updates []string, entity models.User) {
@@ -381,10 +425,9 @@ func (p *MysqlProvider) UpdateUser(updates []string, entity models.User) {
 }
 
 func (p *MysqlProvider) updateUser(tx *sql.Tx, updates []string, entity models.User) {
-	target := "users"
 
 	var stmt *sql.Stmt
-	qry := buildUpdate(target, updates[1:], "id")
+	qry := buildUpdate(USERS, updates[1:], "id")
 	if tx != nil {
 		stmt, _ = tx.Prepare(qry)
 	} else {
@@ -395,15 +438,13 @@ func (p *MysqlProvider) updateUser(tx *sql.Tx, updates []string, entity models.U
 		entity.Default_group_id, entity.Role, entity.Time_zone, entity.Updated_at.Unix(), entity.Id)
 
 	if err != nil {
-		log.Printf("SQLException: failed to update %v in %s: \n\t%s", entity.Id, target, err)
+		log.Printf("SQLException: failed to update %v in %s: \n\t%s", entity.Id, USERS, err)
 	}
 }
 
-//TODO: Reduce code redundancy
 func (p *MysqlProvider) ImportTickets(entities []models.Ticket) {
 	defer  timeTrack(time.Now(), "Ticket import")
 
-	target := "tickets"
 	fields := []string{"id", "subject", "status", "requester_id", "submitter_id", "assignee_id",
 		"organization_id", "group_id", "created_at", "updated_at", "version", "component", "priority", "ttfr", "solved_at"}
 
@@ -412,23 +453,30 @@ func (p *MysqlProvider) ImportTickets(entities []models.Ticket) {
 
 	var last int64 = 0
 
-	qry, found := inserts[target]
+	qry, found := inserts[TICKETS]
 	if !found {
-		qry = registerInsert(target, fields)
+		qry = registerInsert(TICKETS, fields)
 	}
 
 	stmt, _ := tx.Prepare(qry)
 	for _, e := range entities {
+
+		for _, f := range p.transformations[TICKETS] {
+			f(&e)
+		}
+
 		_, err := stmt.Exec(e.Id, e.Subject, e.Status, e.Requester_id, e.Submitter_id, e.Assignee_id,
 			e.Organization_id, e.Group_id, e.Created_at.Unix(), e.Updated_at.Unix(), "", "", "", 0, 0)
-		p.ImportTicketCustomFields(e.Id, e.Custom_fields)
+
+		p.ImportTicketFieldValues(e.Id, e.Custom_fields)
+
 		if err != nil {
 			switch err.(*mysql.MySQLError).Number {
 			case 1062:
 				p.updateTicket(tx,fields, e)
 				break
 			default:
-				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, target, err)
+				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, TICKETS, err)
 			}
 			continue
 		}
@@ -439,7 +487,7 @@ func (p *MysqlProvider) ImportTickets(entities []models.Ticket) {
 	stmt.Close()
 
 	tx.Commit()
-	p.CommitSequence(target, last)
+	p.CommitSequence(TICKETS, last)
 }
 
 func (p *MysqlProvider) UpdateTicket(updates []string, entity models.Ticket) {
@@ -447,10 +495,9 @@ func (p *MysqlProvider) UpdateTicket(updates []string, entity models.Ticket) {
 }
 
 func (p *MysqlProvider) updateTicket(tx *sql.Tx, updates []string, entity models.Ticket) {
-	target := "tickets"
 
 	var stmt *sql.Stmt
-	qry := buildUpdate(target, updates[1:10], "id")
+	qry := buildUpdate(TICKETS, updates[1:10], "id")
 	if tx != nil {
 		stmt, _ = tx.Prepare(qry)
 	} else {
@@ -461,27 +508,23 @@ func (p *MysqlProvider) updateTicket(tx *sql.Tx, updates []string, entity models
 		entity.Organization_id, entity.Group_id, entity.Created_at.Unix(), entity.Updated_at.Unix(), entity.Id)
 
 	if err != nil {
-		log.Printf("SQLException: failed to update %v in %s: \n\t%s", entity.Id, target, err)
+		log.Printf("SQLException: failed to update %v in %s: \n\t%s", entity.Id, TICKETS, err)
 	}
 }
 
 func (p *MysqlProvider) ExportTickets(since int64, orgID int64) (entities []models.Ticket_Enhanced) {
 	defer  timeTrack(time.Now(), "Ticket export")
-	target := "tickets"
 
-	qry := fmt.Sprintf(fetchTickets, target, since)
-	if orgID > 0 {
-		qry = fmt.Sprintf(fetchByOrganizationID, target, since, orgID)
-	}
+	qry := fmt.Sprintf(fetchTickets, since)
 
 	var last int
-	p.dbClient.QueryRow(fmt.Sprintf(sizeOf, target, since)).Scan(&last)
+	p.dbClient.QueryRow(fmt.Sprintf(sizeOf, TICKETS, since)).Scan(&last)
 	entities = make([]models.Ticket_Enhanced, last, last)
 	rows, err := p.dbClient.Query(qry)
 	defer rows.Close()
 
 	if err != nil {
-		log.Fatal("SQLException: failed to fetch from %s: %s", target, err)
+		log.Fatal("SQLException: failed to fetch from %s: %s", TICKETS, err)
 	}
 
 	last = 0
@@ -509,8 +552,6 @@ func (p *MysqlProvider) ExportTickets(since int64, orgID int64) (entities []mode
 
 //TODO: Reduce code redundancy
 func (p *MysqlProvider) ImportTicketFields(entities []models.Ticket_field) {
-
-	target := "ticket_fields"
 	fields := []string{"id", "title"}
 
 	tx, _ := p.dbClient.Begin()
@@ -518,13 +559,18 @@ func (p *MysqlProvider) ImportTicketFields(entities []models.Ticket_field) {
 
 	var last int64 = 0
 
-	qry, found := inserts[target]
+	qry, found := inserts[TICKET_FIELDS]
 	if !found {
-		qry = registerInsert(target, fields)
+		qry = registerInsert(TICKET_FIELDS, fields)
 	}
 
 	stmt, _ := tx.Prepare(qry)
 	for _, e := range entities {
+
+		for _, f := range p.transformations[TICKET_FIELDS] {
+			f(&e)
+		}
+
 		_, err := stmt.Exec(e.Id, e.Title)
 		if err != nil {
 			switch err.(*mysql.MySQLError).Number {
@@ -532,7 +578,7 @@ func (p *MysqlProvider) ImportTicketFields(entities []models.Ticket_field) {
 				p.updateTicketField(tx,fields, e)
 				break
 			default:
-				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, target, err)
+				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, TICKET_FIELDS, err)
 			}
 			continue
 		}
@@ -543,7 +589,7 @@ func (p *MysqlProvider) ImportTicketFields(entities []models.Ticket_field) {
 	stmt.Close()
 
 	tx.Commit()
-	p.CommitSequence(target, last)
+	p.CommitSequence(TICKET_FIELDS, last)
 }
 
 func (p *MysqlProvider) UpdateTicketField(updates []string, entity models.Ticket_field) {
@@ -551,10 +597,8 @@ func (p *MysqlProvider) UpdateTicketField(updates []string, entity models.Ticket
 }
 
 func (p *MysqlProvider) updateTicketField(tx *sql.Tx, updates []string, entity models.Ticket_field) {
-	target := "ticket_fields"
-
 	var stmt *sql.Stmt
-	qry := buildUpdate(target, updates[1:], "id")
+	qry := buildUpdate(TICKET_FIELDS, updates[1:], "id")
 	if tx != nil {
 		stmt, _ = tx.Prepare(qry)
 	} else {
@@ -564,37 +608,38 @@ func (p *MysqlProvider) updateTicketField(tx *sql.Tx, updates []string, entity m
 	_, err := stmt.Exec(entity.Id, entity.Title)
 
 	if err != nil {
-		log.Printf("SQLException: failed to update %v record in %s: \n\t%s", entity.Id, target, err)
+		log.Printf("SQLException: failed to update %v record in %s: \n\t%s", entity.Id, TICKET_FIELDS, err)
 	}
 }
 
 //TODO: Reduce code redundancy
-func (p *MysqlProvider) ImportTicketCustomFields(parent int64, entities []models.Custom_fields) {
-
-	target := "ticket_metadata"
-	fields := []string{"ticket_id", "field_id", "value"}
+func (p *MysqlProvider) ImportTicketFieldValues(parent int64, entities []models.Custom_fields) {
+	fields := []string{"ticket_id", "field_id", "raw_value", "transformed_value"}
 
 	tx, _ := p.dbClient.Begin()
 	defer tx.Rollback()
 
 	var last int64 = 0
 
-	qry, found := inserts[target]
+	qry, found := inserts[TICKET_FIELD_VALUES]
 	if !found {
-		qry = registerInsert(target, fields)
+		qry = registerInsert(TICKET_FIELD_VALUES, fields)
 	}
 
 	stmt, _ := tx.Prepare(qry)
 
 	for _, e := range entities {
-		_, err := stmt.Exec(parent, e.Id, e.Value)
+
+		for _, f := range p.transformations[TICKET_FIELD_VALUES] {
+			f(&e)
+		}
+		_, err := stmt.Exec(parent, e.Id, e.Value, e.Transformed)
 		if err != nil {
 			switch err.(*mysql.MySQLError).Number {
 			case 1062:
-				p.updateTicketCustomField(tx,fields,parent, e)
-				break
+				p.updateTicketFieldValues(tx,fields,parent, e)
 			default:
-				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, target, err)
+				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, TICKET_FIELD_VALUES, err)
 			}
 			continue
 		}
@@ -604,34 +649,32 @@ func (p *MysqlProvider) ImportTicketCustomFields(parent int64, entities []models
 	stmt.Close()
 
 	tx.Commit()
-	p.CommitSequence(target, last)
+	p.CommitSequence(TICKET_FIELD_VALUES, last)
 }
 
-func (p *MysqlProvider) UpdateTicketCustomField(updates []string, parent int64, entity models.Custom_fields) {
-	p.updateTicketCustomField(nil, updates, parent,  entity)
+func (p *MysqlProvider) UpdateTicketFieldValues(updates []string, parent int64, entity models.Custom_fields) {
+	p.updateTicketFieldValues(nil, updates, parent,  entity)
 }
 
-func (p *MysqlProvider) updateTicketCustomField(tx *sql.Tx, updates []string, parent int64, entity models.Custom_fields) {
-	target := "ticket_metadata"
+func (p *MysqlProvider) updateTicketFieldValues(tx *sql.Tx, updates []string, parent int64, entity models.Custom_fields) {
 
 	var stmt *sql.Stmt
-	qry := buildUpdate(target, updates[2:], "ticket_id = ? AND field_id")
+	qry := buildUpdate(TICKET_FIELD_VALUES, updates[2:], "ticket_id = ? AND field_id")
 	if tx != nil {
 		stmt, _ = tx.Prepare(qry)
 	} else {
 		stmt, _ = p.dbClient.Prepare(qry)
 	}
 
-	_, err := stmt.Exec( entity.Value, entity.Id, parent)
+	_, err := stmt.Exec( entity.Value, entity.Transformed, entity.Id, parent)
 
 	if err != nil {
-		log.Printf("SQLException: failed to update %v record in %s: \n\t%s", entity.Id, target, err)
+		log.Printf("SQLException: failed to update %v record in %s: \n\t%s", entity.Id, TICKET_FIELD_VALUES, err)
 	}
 }
 
 //TODO: Reduce code redundancy
 func (p *MysqlProvider) ImportTicketMetrics(entities []models.Ticket_metrics) {
-	target := "ticket_metrics"
 	fields := []string{"id", "created_at", "updated_at", "ticket_id", "replies", "ttfr", "solved_at"}
 
 	tx, _ := p.dbClient.Begin()
@@ -640,33 +683,32 @@ func (p *MysqlProvider) ImportTicketMetrics(entities []models.Ticket_metrics) {
 	stmt, _ := tx.Prepare(updateTicketMetrics)
 
 	var last int64 = 0
-	var solved int64 = 0
-
 	for _, e := range entities {
-		if solved = e.Solved_at.Unix(); solved < 0 {
-			solved = 0
+
+		for _, f := range p.transformations[TICKET_METRICS] {
+			f(&e)
 		}
 
-		_, err := stmt.Exec(e.Id, e.Created_at.Unix(), e.Updated_at.Unix(), e.Ticket_id, e.Replies,e.Reply_time_in_minutes.Business, solved, e.Ticket_id)
+		_, err := stmt.Exec(e.Id, e.Created_at.Unix(), e.Updated_at.Unix(), e.Ticket_id, e.Replies,e.Reply_time_in_minutes.Business, e.Solved_at.Unix(), e.Ticket_id)
 		//TODO: Proper error handling, allow for on err callbacks
 		if err != nil {
 			switch err.(*mysql.MySQLError).Number {
 			case 1062:
 				p.updateTicketMetric(tx,fields, e)
 			default:
-				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, target, err)
+				log.Printf("SQLException: failed to insert %v into %s: \n\t%s", e.Id, TICKET_METRICS, err)
 			}
 			continue
 		}
-
-		if e.Ticket_id > last && solved > 0 {
+		// TODO: this actually short changes us
+		if e.Ticket_id > last && e.Solved_at.Unix() > 0 {
 			last = e.Ticket_id
 		}
 	}
-	stmt.Close()
 
+	stmt.Close()
 	tx.Commit()
-	p.CommitSequence(target, last)
+	p.CommitSequence(TICKET_METRICS, last)
 }
 
 func (p *MysqlProvider) UpdateTicketMetric(updates []string, entity models.Ticket_metrics) {
@@ -674,10 +716,10 @@ func (p *MysqlProvider) UpdateTicketMetric(updates []string, entity models.Ticke
 }
 
 func (p *MysqlProvider) updateTicketMetric(tx *sql.Tx, updates []string, entity models.Ticket_metrics) {
-	target := "ticket_metrics"
 
 	var stmt *sql.Stmt
-	qry := buildUpdate(target, updates[1:], "id")
+	qry := buildUpdate(TICKET_METRICS, updates[1:], "id")
+
 	if tx != nil {
 		stmt, _ = tx.Prepare(qry)
 	} else {
@@ -693,7 +735,7 @@ func (p *MysqlProvider) updateTicketMetric(tx *sql.Tx, updates []string, entity 
 		entity.Reply_time_in_minutes.Business, solved, entity.Id)
 
 	if err != nil {
-		log.Printf("SQLException: failed to update id %v record in %s: \n\t%s", entity.Id, target, err)
+		log.Printf("SQLException: failed to update id %v record in %s: \n\t%s", entity.Id, TICKET_METRICS, err)
 	}
 }
 
@@ -718,6 +760,11 @@ func (p *MysqlProvider) ImportAudit(entities []models.Audit) {
 
 	fieldID := strconv.FormatInt(34347708, 10)
 	for _, e := range entities {
+
+		for _, f := range p.transformations[target] {
+			f(&e)
+		}
+
 		for _, se := range e.Events {
 			if se.Type == "Change" && se.Field_name == fieldID  {
 				_, err := stmt.Exec(e.Ticket_id, e.Author_id, se.Value)

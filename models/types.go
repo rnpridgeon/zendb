@@ -41,6 +41,7 @@ type Ticket_Enhanced struct {
 type Custom_fields struct {
 	Id    int64       `json:"id"`
 	Value interface{} `json:"value"`
+	Transformed	string	`json:"-"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/ticket_fields
@@ -129,7 +130,7 @@ type Event struct {
 	Id             int64  `json:"id"`
 	Type           string `json:"type"`
 	Field_name     string `json:"field_name"`
-	Value          string `json:"value"`
+	Value          interface{} `json:"value"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/satisfaction_ratings

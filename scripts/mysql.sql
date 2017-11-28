@@ -138,7 +138,8 @@ CREATE TABLE IF NOT EXISTS tickets (
 CREATE TABLE IF NOT EXISTS ticket_metadata (
 	ticket_id BIGINT UNSIGNED NOT NULL,
 	field_id  BIGINT  UNSIGNED NOT NULL,
-	value     VARCHAR(255),
+	raw_value     VARCHAR(255),
+	transformed_value VARCHAR(255),
 	PRIMARY KEY (`ticket_id`, `field_id`),
 	FOREIGN KEY (`field_id`)
 		REFERENCES ticket_fields(`id`)
