@@ -27,7 +27,7 @@ Docker:
 
 1. Set GOPATH
 
-`export GOPATH=/some/go/dir'
+`export GOPATH=/some/go/dir`
 
 2. Fetch the project with go get 
 
