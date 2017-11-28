@@ -24,6 +24,7 @@ INSERT INTO sequence_table (sequence_name, last_val)
     ("ticket_metrics", 0),
     ("organization_export", 0),
     ("user_export", 0),
+		("ticket_audit",0),
     ("ticket_export", 0);
 
 CREATE TABLE IF NOT EXISTS organization_fields (
@@ -52,12 +53,13 @@ CREATE TABLE IF NOT EXISTS ticket_fields (
 
 /* TODO: There are more metrics I want to extract, this will have to suffice for the first iteration */
 CREATE TABLE IF NOT EXISTS ticket_metrics (
-  id        BIGINT UNSIGNED UNIQUE KEY NOT NULL,
+  id        	BIGINT UNSIGNED UNIQUE KEY NOT NULL,
   created_at BIGINT UNSIGNED,
   updated_at BIGINT UNSIGNED,
   ticket_id	 BIGINT UNSIGNED NOT NULL,
   replies		 BIGINT UNSIGNED,
-  solved_at	 INT UNSIGNED,
+	ttfr			 BIGINT	UNSIGNED,
+  solved_at	 BIGINT UNSIGNED DEFAULT 0,
   PRIMARY KEY(`id`)
 );
 
@@ -75,7 +77,7 @@ INSERT INTO groups VALUES (0, "UNDEFINED", 0, 0);
 CREATE TABLE IF NOT EXISTS organizations (
 	id          BIGINT	UNSIGNED UNIQUE KEY	NOT NULL,
 	name        VARCHAR(255) NOT NULL,
-	create_at   INT UNSIGNED NOT NULL,
+	created_at   INT UNSIGNED NOT NULL,
 	updated_at  INT	UNSIGNED NOT NULL,
 	group_id	  BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (`id`),
@@ -116,8 +118,9 @@ CREATE TABLE IF NOT EXISTS tickets (
 	updated_at      INT UNSIGNED NOT NULL,
 	version		    	VARCHAR(55) DEFAULT '-',
   component       VARCHAR(55) DEFAULT '-',
-  priority        VARCHAR(10) DEFAULT '-',
-  solved_at       INT UNSIGNED DEFAULT 0,
+  priority        VARCHAR(10) DEFAULT 'undefined',
+	ttfr						BIGINT UNSIGNED,
+	solved_at       BIGINT UNSIGNED DEFAULT 0,
  	PRIMARY KEY (`id`),
 	FOREIGN KEY (`requester_id`)
 		REFERENCES users(`id`),
@@ -141,6 +144,17 @@ CREATE TABLE IF NOT EXISTS ticket_metadata (
 		REFERENCES ticket_fields(`id`)
 );
 
+CREATE TABLE IF NOT EXISTS ticket_audit (
+	ticket_id BIGINT UNSIGNED NOT NULL,
+	author_id BIGINT UNSIGNED NOT NULL,
+	value     BIGINT UNSIGNED,
+	PRIMARY KEY (`ticket_id`),
+	FOREIGN KEY (`ticket_id`)
+		REFERENCES tickets(`id`),
+	FOREIGN KEY (`author_id`)
+	REFERENCES users(`id`)
+);
+
 /* convenience table */
 CREATE VIEW ticket_view AS SELECT tickets.id, tickets.priority, organizations.name AS organization, users.name AS requester,
                              tickets.status, tickets.component, tickets.version, FROM_UNIXTIME(tickets.created_at) AS created_at,
@@ -160,4 +174,15 @@ CREATE TRIGGER increment_only BEFORE UPDATE ON zendb.sequence_table FOR EACH ROW
       SET NEW.last_val = NEW.last_val + 1;
     END IF;
   END
+//
+
+DELIMITER //
+CREATE TRIGGER increment_audit BEFORE UPDATE ON zendb.ticket_audit FOR EACH ROW
+	BEGIN
+		IF OLD.value > NEW.value THEN
+			SET NEW.value = OLD.value;
+		ELSE
+			SET NEW.value = NEW.value + 1;
+		END IF;
+	END
 //

@@ -10,12 +10,7 @@ import (
 // tickets - basic ticket object
 type Ticket struct {
 	Id                  int64                `json:"id"`
-	URL                 string               `json:"url"`
-	External_id         string               `json:"external_id"`
-	Type                string               `json:"Type"`
 	Subject             string               `json:"subject"`
-	Raw_subject         string               `json:"raw_subject"`
-	Description         string               `json:"description"`
 	Priority            string               `json:"priority"`
 	Status              string               `json:"status"`
 	Recipient           string               `json:"recipient"`
@@ -24,22 +19,19 @@ type Ticket struct {
 	Assignee_id         int64                `json:"assignee_id"`
 	Organization_id     int64                `json:"organization_id"`
 	Group_id            int64                `json:"group_id"`
-	Collaborator_ids    []int64              `json:"collaborator_ids"`
-	Forum_topic_id      int64                `json:"forum_topic_id"`
-	Problem_id          int64                `json:"problem_id"`
-	Has_incidents       bool                 `json:"has_incidents"`
-	Due_at              *time.Time           `json:"due_at"`
-	Tags                []string             `json:"tags"`
-	Via                 via                  `json:"via"`
 	Custom_fields       []Custom_fields      `json:"custom_fields"`
 	Satisfaction_rating *satisfaction_rating `json:"satisfaction_rating"`
-	Followup_ids        []int64              `json:"followup_ids"`
-	Ticket_form_id      int64                `json:"ticket_form_ids"`
-	Brand_id            int64                `json:"brand_id"`
-	Allow_channelback   bool                 `json:"allow_channelback"`
-	Is_public           bool                 `json:"is_public"`
-	Created_at          *time.Time           `json:"created_at"`
-	Updated_at          *time.Time           `json:"updated_at"`
+	Created_at          time.Time           `json:"created_at"`
+	Updated_at          time.Time           `json:"updated_at"`
+}
+
+type Ticket_Enhanced struct {
+	Ticket
+	Version	string 				`json:"version"`
+	Component string			`json:"component"`
+	Priority string				`json:"priority"`
+	TTFR	int64				`json:"ttfr"`
+	Solved_at		time.Time	`json:"solved_at"`
 }
 
 // Doc: derived from example in ticket, no direct documentation found
@@ -73,8 +65,8 @@ type Ticket_field struct {
 	Editable_in_portal    bool                   `json:"editable_in_portal"`
 	Required_in_portal    bool                   `json:"required_in_portal"`
 	Tag                   string                 `json:"tag"`
-	Created_at            *time.Time             `json:"created_at"`
-	Updated_at            *time.Time             `json:"updated_at"`
+	Created_at            time.Time             `json:"created_at"`
+	Updated_at            time.Time             `json:"updated_at"`
 	System_field_options  map[string]interface{} `json:"-"`
 	Custom_field_options  map[string]string      `json:"-"`
 	Removable             bool                   `json:"removable"`
@@ -92,20 +84,20 @@ type Ticket_metrics struct {
 	Assignee_stations                int64              `json:"assignee_stations"`
 	Reopens                          int64              `json:"reopens"`
 	Replies                          int64              `json:"replies"`
-	Assignee_updated_at              *time.Time         `json:"assignee_updated_at"`
-	Requester_updated_at             *time.Time         `json:"requester_updated_at"`
-	Status_updated_at                *time.Time         `json:"status_updated_at"`
-	Initially_assigned_at            *time.Time         `json:"initially_assigned_at"`
-	Assigned_at                      *time.Time         `json:"assigned_at"`
-	Solved_at                        *time.Time         `json:"solved_at"`
-	Latest_comment_added_at          *time.Time         `json:"latest_comment_added_at"`
+	Assignee_updated_at              time.Time         `json:"assignee_updated_at"`
+	Requester_updated_at             time.Time         `json:"requester_updated_at"`
+	Status_updated_at                time.Time         `json:"status_updated_at"`
+	Initially_assigned_at            time.Time         `json:"initially_assigned_at"`
+	Assigned_at                      time.Time         `json:"assigned_at"`
+	Solved_at                        time.Time         `json:"solved_at"`
+	Latest_comment_added_at          time.Time         `json:"latest_comment_added_at"`
 	First_resolution_time_in_minutes *business_calendar `json:"first_resolution_time_in_minutes"`
 	Reply_time_in_minutes            *business_calendar `json:"reply_time_in_minutes"`
 	Full_resolution_time_in_minutes  *business_calendar `json:"full_resolution_time_in_minutes"`
 	Agent_wait_time_in_minutes       *business_calendar `json:"agent_wait_time_in_minutes"`
 	Requester_wait_time_in_minutes   *business_calendar `json:"requester_wait_time_in_minutes"`
-	Created_at                       *time.Time         `json:"created_at"`
-	Updated_at                       *time.Time         `json:"updated_at"`
+	Created_at                       time.Time         `json:"created_at"`
+	Updated_at                       time.Time         `json:"updated_at"`
 }
 
 // Doc: derived from example in ticket_metrics, no direct documentation found
@@ -124,23 +116,20 @@ type business_calendar struct {
 type Audit struct {
 	Id         int64                  `json:"id"`
 	Ticket_id  int64                  `json:"ticket_id"`
-	Metadata   map[string]interface{} `json:"metadata"`
-	Via        via                    `json:"via"`
-	Created_at *time.Time             `json:"created_at"`
+	Created_at time.Time  	          `json:"created_at"`
 	Author_id  int64                  `json:"author_id"`
-	Events     []event                `json:"events"`
+	Events     []Event                `json:"events"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/ticket_audits#audit-events
 // Parent: audit
 // Notes: resource type: Data; Currently only `Create` and `Change` events are supported, this Union represents both
 // event - change metadata
-type event struct {
+type Event struct {
 	Id             int64  `json:"id"`
 	Type           string `json:"type"`
-	Field_name     string `json:"type"`
-	Value          string `json:"type"`
-	Previous_value string `json:"type, omitempty"`
+	Field_name     string `json:"field_name"`
+	Value          string `json:"value"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/satisfaction_ratings
@@ -193,7 +182,7 @@ type User struct {
 	Ticket_restrcition    string            `json:"ticket_restriction"`
 	Time_zone             string            `json:"time_zone"`
 	Two_factor_enabled    bool              `json:"two_factor_auth_enabled"`
-	Updated_at            *time.Time        `json:"updated_at"`
+	Updated_at            time.Time        `json:"updated_at"`
 	URL                   string            `json:"url"`
 	User_fields           map[string]string `json:"user_fields"`
 	Verified              bool              `json:"verified"`
@@ -216,8 +205,8 @@ type user_field struct {
 	Active                bool                   `json:"active"`
 	System                bool                   `json:"system"`
 	Regexp_for_validation string                 `json:"regexp_for_validation"`
-	Created_at            *time.Time             `json:"created_at"`
-	Updated_at            *time.Time             `json:"updated_at"`
+	Created_at            time.Time             `json:"created_at"`
+	Updated_at            time.Time             `json:"updated_at"`
 	Tag                   string                 `json:"tag"`
 	Custom_field_options  map[string]interface{} `json:"custom_filed_options"`
 }
@@ -230,8 +219,8 @@ type Organization struct {
 	Id         int64      `json:"id"`
 	URL        string     `json:"url"`
 	Name       string     `json:"name"`
-	Created_at *time.Time `json:"created_at"`
-	Updated_at *time.Time `json:"updated_at"`
+	Created_at time.Time   `json:"created_at"`
+	Updated_at time.Time 	`json:"updated_at"`
 	Group_id   int64      `json:"group_id"`
 }
 
@@ -252,8 +241,8 @@ type organization_field struct {
 	Active                bool                   `json:"active"`
 	System                bool                   `json:"system"`
 	Regexp_for_validation string                 `json:"regexp_for_validation"`
-	Created_at            *time.Time             `json:"created_at"`
-	Updated_at            *time.Time             `json:"updated_at"`
+	Created_at            time.Time             `json:"created_at"`
+	Updated_at            time.Time             `json:"updated_at"`
 	Tag                   string                 `json:"tag"`
 	Custom_field_options  map[string]interface{} `json:"custom_field_options"`
 }
@@ -267,8 +256,8 @@ type Group struct {
 	URL        string     `json:"url"`
 	Name       string     `json:"name"`
 	Deleted    bool       `json:"bool"`
-	Created_at *time.Time `json:"created_at"`
-	Updated_at *time.Time `json:"updated_at"`
+	Created_at time.Time `json:"created_at"`
+	Updated_at time.Time `json:"updated_at"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/attachments

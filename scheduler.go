@@ -20,6 +20,11 @@ type Scheduler struct {
 	done chan bool
 }
 
+func TimeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("INFO: %s took %s", name, elapsed)
+}
+
 func NewScheduler(tickTime time.Duration, run func()()) (Scheduler){
 	return Scheduler{time.NewTicker(tickTime), run, make(chan bool)}
 }
