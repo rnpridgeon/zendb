@@ -24,8 +24,16 @@ Docker:
   https://docs.docker.com/docker-for-mac/install/
 
 # Set-up (Assumes use of docker)
- 
-Assuming you have all the depenencies in place and admin rights within zendesk execute the following from the project's root directory. 
+
+1. Set GOPATH
+
+`export GOPATH=/some/go/dir'
+
+2. Fetch the project with go get 
+
+`go get github.com/rnpridgeon/zendb`
+
+3. Assuming you have all the depenencies in place and admin rights within zendesk execute the following from the project's root directory. 
 
 `./util/setup.sh` 
 
