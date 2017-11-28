@@ -150,7 +150,7 @@ func Process() {
 	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"],0))
 	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
 	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_metrics"])
-	source.ExportTicketMetrics(requireMetrics , sink.ImportTicketMetrics)
+	//source.ExportTicketMetrics(requireMetrics , sink.ImportTicketMetrics)
 	log.Printf("INFO: Fetching ticket audits since audit id %d", start["ticket_audit"])
 	source.ExportTicketAudits(start["ticket_audit"], sink.ImportAudit)
 	PostProcessing()

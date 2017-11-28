@@ -233,9 +233,10 @@ func (r *ZDProvider) ExportTicketAudits(since int64, process func([]models.Audit
 		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
-		if len(rezponze.Payload) > 0 && rezponze.Payload[0].Id < since || rezponze.Before_Cursor == "" {
+		if rezponze.Before_Cursor == "" || rezponze.Payload[0].Id < since {
 			break;
 		}
+
 		r.URL, _ = r.URL.Parse(rezponze.Before_URL)
 		rezponze.Before_Cursor = ""
 	}
