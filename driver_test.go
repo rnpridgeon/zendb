@@ -86,6 +86,8 @@ func transformComponent(obj interface{}) {
 			entity.Transformed = "clients-third-party"
 		case strings.Contains(val, "java_"):
 			entity.Transformed = "clients-java"
+		case strings.Contains(val, "java_"):
+			entity.Transformed = "clients-java"
 		default:
 			entity.Transformed = entity.Value.(string)
 		}

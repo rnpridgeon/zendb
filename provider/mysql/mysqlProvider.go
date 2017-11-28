@@ -179,7 +179,6 @@ func (p *MysqlProvider) ImportGroups(entities []models.Group) {
 	defer tx.Rollback()
 
 	var last int64 = 0
-
 	stmt, _ := tx.Prepare(importGroups)
 	for _, e := range entities {
 
