@@ -3,8 +3,6 @@
 self="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $self
 
-export GOPATH=$self
-
 printf "Enter zendesk subdomain: "
 read domain
 
