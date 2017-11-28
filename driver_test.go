@@ -66,7 +66,7 @@ func successOnPanic(t *testing.T) {
 
 // Test custom query/post processing
 func PostProcessing() {
-	defer TimeTrack(time.Now(), "Ticket Metrics import")
+	defer TimeTrack(time.Now(), "Ticket post processing")
 
 	sink.ExecRaw(insertPriority)
 	sink.ExecRaw(insertComponent)
@@ -120,8 +120,9 @@ func Process() {
 	sink.CommitSequence("user_export", source.ExportUsers(start["user_export"], sink.ImportUsers))
 	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"],0))
 	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
-	log.Printf("INFO: Fetching ticket metric updates since %v...\n", time.Unix(start["ticket_metrics"],0))
+	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_metrics"])
 	source.ExportTicketMetrics(start["ticket_metrics"], start["tickets"] , sink.ImportTicketMetrics)
+	log.Printf("INFO: Fetching ticket audits since audit id %d", start["ticket_audit"])
 	source.ExportTicketAudits(start["ticket_audit"], sink.ImportAudit)
 	PostProcessing()
 }
