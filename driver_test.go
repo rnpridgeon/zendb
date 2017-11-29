@@ -19,6 +19,7 @@ var (
 	sink *mysql.MysqlProvider
 	source *zendesk.ZDProvider
 	requireMetrics []int64
+	ticketFields = make(map[string]int64)
 )
 
 type Config struct {
@@ -105,6 +106,10 @@ func transformPriority(obj interface{}) {
 	}
 }
 
+func captureFieldList(obj interface{}) {
+	ticketFields[obj.(*models.Ticket_field).Title]=obj.(*models.Ticket_field).Id
+}
+
 func buildMetricsList(obj interface{}) {
 	requireMetrics = append(requireMetrics, obj.(*models.Ticket).Id)
 }
@@ -112,6 +117,8 @@ func buildMetricsList(obj interface{}) {
 // Test custom query/post processing
 func PostProcessing() {
 	defer TimeTrack(time.Now(), "Ticket post processing")
+	//clean-up array
+	requireMetrics = nil
 
 	sink.ExecRaw(insertPriority)
 	sink.ExecRaw(insertComponent)
@@ -131,14 +138,18 @@ func TestScheduled(t *testing.T) {
 	}()
 	scheduler.Start()
 }
+func importGroups(g []models.Group){
+	sink.ImportGroups(g)
+}
 
 func InitialLoad() {
+	sink.RegisterTransformation("ticket_fields", captureFieldList)
 	sink.RegisterTransformation("ticket_metadata", transformComponent)
 	sink.RegisterTransformation("ticket_metadata", transformPriority)
 	sink.RegisterTransformation("tickets", buildMetricsList)
 
-	source.ListTicketFields(sink.ImportTicketFields)
-	source.ListGroups(sink.ImportGroups)
+	source.ExportTicketFields(sink.ImportTicketFields)
+	source.ExportGroups(sink.ImportGroups)
 	Process()
 }
 
@@ -151,8 +162,8 @@ func Process() {
 	sink.CommitSequence("user_export", source.ExportUsers(start["user_export"], sink.ImportUsers))
 	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"],0))
 	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
-	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_metrics"])
-	//source.ExportTicketMetrics(requireMetrics , sink.ImportTicketMetrics)
+	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_export"])
+	source.ExportTicketMetrics(requireMetrics , sink.ImportTicketMetrics)
 	log.Printf("INFO: Fetching ticket audits since audit id %d", start["ticket_audit"])
 	source.ExportTicketAudits(start["ticket_audit"], sink.ImportAudit)
 	PostProcessing()

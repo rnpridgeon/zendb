@@ -14,18 +14,7 @@ CREATE TABLE IF NOT EXISTS sequence_table (
 	PRIMARY KEY (`sequence_name`)
 );
 
-/* setting initial values makes application code simpler */
-INSERT INTO sequence_table (sequence_name, last_val)
-  VALUES
-    ("groups", 0),
-    ("organizations", 0),
-    ("users", 0),
-    ("tickets", 0),
-    ("ticket_metrics", 0),
-    ("organization_export", 0),
-    ("user_export", 0),
-		("ticket_audit",0),
-    ("ticket_export", 0);
+
 
 CREATE TABLE IF NOT EXISTS organization_fields (
 	id			    BIGINT UNSIGNED UNIQUE KEY NOT NULL,
@@ -53,7 +42,7 @@ CREATE TABLE IF NOT EXISTS ticket_fields (
 
 /* TODO: There are more metrics I want to extract, this will have to suffice for the first iteration */
 CREATE TABLE IF NOT EXISTS ticket_metrics (
-  id        	BIGINT UNSIGNED UNIQUE KEY NOT NULL,
+  id         BIGINT UNSIGNED UNIQUE KEY NOT NULL,
   created_at BIGINT UNSIGNED,
   updated_at BIGINT UNSIGNED,
   ticket_id	 BIGINT UNSIGNED NOT NULL,

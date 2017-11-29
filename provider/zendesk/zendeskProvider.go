@@ -10,17 +10,16 @@ import (
 	"time"
 )
 
+
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	log.Printf("INFO: %s took %s", name, elapsed)
+}
+
 var (
 	httpClient *http.Client
 	header     http.Header
 )
-
-type pager struct {
-	Next     string `json:"next_page"`
-	Previous string `json:"previous_page"`
-	End      int64  `json:"end_time"`
-	Count    int64  `json:"count"`
-}
 
 const base = "https://%s.zendesk.com/api/v2/"
 
@@ -34,25 +33,57 @@ type ZDProvider struct {
 	*http.Request
 }
 
-func timeTrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	log.Printf("INFO: %s took %s", name, elapsed)
+func Open(client *http.Client, conf *ZendeskConfig) (handle *ZDProvider) {
+	httpClient = client
+	return newHandler(conf)
 }
 
-func deserialize(request *http.Request, object interface{}) {
+func newHandler(conf *ZendeskConfig) (handle *ZDProvider) {
+	req, _ := http.NewRequest("GET", fmt.Sprintf(base, conf.Subdomain), nil)
+	handle = &ZDProvider{req}
+	handle.Header = header
+	handle.SetBasicAuth(conf.User, conf.Password)
+
+	return handle
+}
+
+type pager struct {
+	Next     string `json:"next_page"`
+	Previous string `json:"previous_page"`
+	End      int64  `json:"end_time"`
+	Count    int64  `json:"count"`
+}
+
+func deserialize(request *http.Request, obj interface{}) {
 	resp, err := httpClient.Do(request)
 
 	if err != nil || resp.StatusCode != http.StatusOK {
 		log.Printf("ERROR: Unable to fetch from fetch from %s: %s", request.URL, resp.Status)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(object); err != nil {
-		log.Printf("Failed to fetch from %s: \n\t%s)", request.URL, err)
+
+	if err := json.NewDecoder(resp.Body).Decode(obj); err != nil {
+		log.Printf("Failed to decode %s: \n\t%s)", obj, err)
 	}
 
 	resp.Body.Close()
 }
 
-func (r *ZDProvider) ListTicketFields(process func([]models.Ticket_field)) (last int64) {
+func deserializeTest(request *http.Request, obj interface{}) (interface{}){
+	resp, err := httpClient.Do(request)
+
+	if err != nil || resp.StatusCode != http.StatusOK {
+		log.Printf("ERROR: Unable to fetch from fetch from %s: %s", request.URL, resp.Status)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(obj); err != nil {
+		log.Printf("Failed to decode %s: \n\t%s)", obj , err)
+	}
+
+	resp.Body.Close()
+	return obj
+}
+
+func (r *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (last int64) {
 	r.URL, _ = r.URL.Parse("./ticket_fields.json")
 
 	var rezponze struct {
@@ -104,7 +135,7 @@ func (r *ZDProvider) ExportTicketMetrics(tickets []int64, process func([]models.
 	return index
 }
 
-func (r *ZDProvider) ListGroups(process func([]models.Group)) (last int64) {
+func (r *ZDProvider) ExportGroups(process func([]models.Group)) (last int64) {
 	r.URL, _ = r.URL.Parse("./groups.json")
 
 	var rezponze struct {
@@ -124,9 +155,11 @@ func (r *ZDProvider) ListGroups(process func([]models.Group)) (last int64) {
 		}
 		break
 	}
+
 	// clean-up
 	r.URL, _ = r.URL.Parse("./")
-	return rezponze.Payload[len(rezponze.Payload)-1].Id
+//	return rezponze.Payload[len(rezponze.Payload)-1].Id
+	return 0
 }
 
 func (r *ZDProvider) ExportOrganizations(since int64, process func([]models.Organization)) (last int64) {
@@ -218,6 +251,16 @@ func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (
 	return rezponze.End
 }
 
+func (r *ZDProvider) GetTicket(id int64, process func(ticket models.Ticket)) {
+	r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d.json",id))
+
+	var payload models.Ticket
+	deserialize(r.Request, &payload)
+	process(payload)
+
+	r.URL, _ = r.URL.Parse("../")
+}
+
 func (r *ZDProvider) ExportTicketAudits(since int64, process func([]models.Audit)) (last string) {
 	r.URL, _ = r.URL.Parse("./ticket_audits.json?cursor=")
 
@@ -244,30 +287,6 @@ func (r *ZDProvider) ExportTicketAudits(since int64, process func([]models.Audit
 	// clean-up
 	r.URL, _ = r.URL.Parse("./")
 	return rezponze.After_Cursor
-}
-
-func (r *ZDProvider) GetTicket(id int64, process func(ticket models.Ticket)) {
-	r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d.json",id))
-
-	var payload models.Ticket
-	deserialize(r.Request, &payload)
-	process(payload)
-
-	r.URL, _ = r.URL.Parse("../")
-}
-
-func newHandler(conf *ZendeskConfig) (handle *ZDProvider) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf(base, conf.Subdomain), nil)
-	handle = &ZDProvider{req}
-	handle.Header = header
-	handle.SetBasicAuth(conf.User, conf.Password)
-
-	return handle
-}
-
-func Open(client *http.Client, conf *ZendeskConfig) (handle *ZDProvider) {
-	httpClient = client
-	return newHandler(conf)
 }
 
 func init() {

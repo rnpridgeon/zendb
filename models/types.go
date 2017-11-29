@@ -2,7 +2,19 @@ package models
 
 import (
 	"time"
+	"encoding/json"
 )
+
+// Rather than dealing with timezones, formatting and such all times are represented as unix epoch 
+type utime int64
+
+func (u *utime) UnmarshalJSON(b []byte) error {
+	var tmp time.Time
+	err := json.Unmarshal(b, &tmp)
+
+	*u = utime(tmp.Unix())
+	return err
+}
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/tickets#content
 // Parent: root
@@ -20,9 +32,9 @@ type Ticket struct {
 	Organization_id     int64                `json:"organization_id"`
 	Group_id            int64                `json:"group_id"`
 	Custom_fields       []Custom_fields      `json:"custom_fields"`
-	Satisfaction_rating *satisfaction_rating `json:"satisfaction_rating"`
-	Created_at          time.Time           `json:"created_at"`
-	Updated_at          time.Time           `json:"updated_at"`
+	Satisfaction_rating *Satisfaction_rating `json:"satisfaction_rating"`
+	Created_at          utime           `json:"created_at"`
+	Updated_at          utime           `json:"updated_at"`
 }
 
 type Ticket_Enhanced struct {
@@ -31,7 +43,7 @@ type Ticket_Enhanced struct {
 	Component string			`json:"component"`
 	Priority string				`json:"priority"`
 	TTFR	int64				`json:"ttfr"`
-	Solved_at		time.Time	`json:"solved_at"`
+	Solved_at		utime		`json:"solved_at"`
 }
 
 // Doc: derived from example in ticket, no direct documentation found
@@ -66,8 +78,8 @@ type Ticket_field struct {
 	Editable_in_portal    bool                   `json:"editable_in_portal"`
 	Required_in_portal    bool                   `json:"required_in_portal"`
 	Tag                   string                 `json:"tag"`
-	Created_at            time.Time             `json:"created_at"`
-	Updated_at            time.Time             `json:"updated_at"`
+	Created_at            utime         	    `json:"created_at"`
+	Updated_at            utime            		 `json:"updated_at"`
 	System_field_options  map[string]interface{} `json:"-"`
 	Custom_field_options  map[string]string      `json:"-"`
 	Removable             bool                   `json:"removable"`
@@ -85,20 +97,20 @@ type Ticket_metrics struct {
 	Assignee_stations                int64              `json:"assignee_stations"`
 	Reopens                          int64              `json:"reopens"`
 	Replies                          int64              `json:"replies"`
-	Assignee_updated_at              time.Time         `json:"assignee_updated_at"`
-	Requester_updated_at             time.Time         `json:"requester_updated_at"`
-	Status_updated_at                time.Time         `json:"status_updated_at"`
-	Initially_assigned_at            time.Time         `json:"initially_assigned_at"`
-	Assigned_at                      time.Time         `json:"assigned_at"`
-	Solved_at                        time.Time         `json:"solved_at"`
-	Latest_comment_added_at          time.Time         `json:"latest_comment_added_at"`
+	Assignee_updated_at              utime         		`json:"assignee_updated_at"`
+	Requester_updated_at             utime        		`json:"requester_updated_at"`
+	Status_updated_at                utime         		`json:"status_updated_at"`
+	Initially_assigned_at            utime         		`json:"initially_assigned_at"`
+	Assigned_at                      utime         		`json:"assigned_at"`
+	Solved_at                        utime         		`json:"solved_at"`
+	Latest_comment_added_at          utime         		`json:"latest_comment_added_at"`
 	First_resolution_time_in_minutes *business_calendar `json:"first_resolution_time_in_minutes"`
 	Reply_time_in_minutes            *business_calendar `json:"reply_time_in_minutes"`
 	Full_resolution_time_in_minutes  *business_calendar `json:"full_resolution_time_in_minutes"`
 	Agent_wait_time_in_minutes       *business_calendar `json:"agent_wait_time_in_minutes"`
 	Requester_wait_time_in_minutes   *business_calendar `json:"requester_wait_time_in_minutes"`
-	Created_at                       time.Time         `json:"created_at"`
-	Updated_at                       time.Time         `json:"updated_at"`
+	Created_at                       utime         		`json:"created_at"`
+	Updated_at                       utime         		`json:"updated_at"`
 }
 
 // Doc: derived from example in ticket_metrics, no direct documentation found
@@ -117,7 +129,7 @@ type business_calendar struct {
 type Audit struct {
 	Id         int64                  `json:"id"`
 	Ticket_id  int64                  `json:"ticket_id"`
-	Created_at time.Time  	          `json:"created_at"`
+	Created_at utime  	          `json:"created_at"`
 	Author_id  int64                  `json:"author_id"`
 	Events     []Event                `json:"events"`
 }
@@ -137,7 +149,7 @@ type Event struct {
 // Parent: ticket
 // Notes: resource type: Embedded
 // satisfaction_rating - survey response data
-type satisfaction_rating struct {
+type Satisfaction_rating struct {
 	Id           int64      `json:"id"`
 	URL          string     `json:"url"`
 	Assignee_id  int64      `json:"assignee_id"`
@@ -145,8 +157,8 @@ type satisfaction_rating struct {
 	Requester_id int64      `json:"requester_id"`
 	Ticket_id    int64      `json:"ticket_id"`
 	Score        string     `json:"score"`
-	Created_at   *time.Time `json:"created_at"`
-	Updated_at   *time.Time `json:"updated_at"`
+	Created_at   *utime `json:"created_at"`
+	Updated_at   *utime `json:"updated_at"`
 	Comment      string     `json:"comment"`
 }
 
@@ -160,10 +172,10 @@ type User struct {
 	Name                  string            `json:"name"`
 	Active                bool              `json:"active"`
 	Alias                 string            `json:"alias"`
-	Created_at            *time.Time        `json:"created_at"`
+	Created_at            *utime        `json:"created_at"`
 	Details               string            `json:"details"`
 	External_id           string            `json:"exteranl_id"`
-	Last_login_at         *time.Time        `json:"last_login_at"`
+	Last_login_at         *utime        `json:"last_login_at"`
 	Locale                string            `json:"locale"`
 	Locale_id             int64             `json:"locale_id"`
 	Moderator             bool              `json:"moderator"`
@@ -183,7 +195,7 @@ type User struct {
 	Ticket_restrcition    string            `json:"ticket_restriction"`
 	Time_zone             string            `json:"time_zone"`
 	Two_factor_enabled    bool              `json:"two_factor_auth_enabled"`
-	Updated_at            time.Time        `json:"updated_at"`
+	Updated_at            utime      	`json:"updated_at"`
 	URL                   string            `json:"url"`
 	User_fields           map[string]string `json:"user_fields"`
 	Verified              bool              `json:"verified"`
@@ -206,8 +218,8 @@ type user_field struct {
 	Active                bool                   `json:"active"`
 	System                bool                   `json:"system"`
 	Regexp_for_validation string                 `json:"regexp_for_validation"`
-	Created_at            time.Time             `json:"created_at"`
-	Updated_at            time.Time             `json:"updated_at"`
+	Created_at            utime             `json:"created_at"`
+	Updated_at            utime             `json:"updated_at"`
 	Tag                   string                 `json:"tag"`
 	Custom_field_options  map[string]interface{} `json:"custom_filed_options"`
 }
@@ -220,8 +232,8 @@ type Organization struct {
 	Id         int64      `json:"id"`
 	URL        string     `json:"url"`
 	Name       string     `json:"name"`
-	Created_at time.Time   `json:"created_at"`
-	Updated_at time.Time 	`json:"updated_at"`
+	Created_at utime   `json:"created_at"`
+	Updated_at utime 	`json:"updated_at"`
 	Group_id   int64      `json:"group_id"`
 }
 
@@ -242,8 +254,8 @@ type organization_field struct {
 	Active                bool                   `json:"active"`
 	System                bool                   `json:"system"`
 	Regexp_for_validation string                 `json:"regexp_for_validation"`
-	Created_at            time.Time             `json:"created_at"`
-	Updated_at            time.Time             `json:"updated_at"`
+	Created_at            utime             `json:"created_at"`
+	Updated_at            utime             `json:"updated_at"`
 	Tag                   string                 `json:"tag"`
 	Custom_field_options  map[string]interface{} `json:"custom_field_options"`
 }
@@ -254,11 +266,9 @@ type organization_field struct {
 // group - ticket working group
 type Group struct {
 	Id         int64      `json:"id"`
-	URL        string     `json:"url"`
 	Name       string     `json:"name"`
-	Deleted    bool       `json:"bool"`
-	Created_at time.Time `json:"created_at"`
-	Updated_at time.Time `json:"updated_at"`
+	Created_at utime `json:"created_at"`
+	Updated_at utime `json:"updated_at"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/attachments
