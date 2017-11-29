@@ -38,4 +38,4 @@ Docker:
 
 `./util/setup.sh` 
 
-Answer some questions, wait. Once populated you can execute `/util/initdb.sh -q mysql` for an example of how to connect using the mysql client. 
+Answer some questions, wait. Once populated you can execute `./util/initdb.sh -q mysql` for an example of how to connect using the mysql client. 
