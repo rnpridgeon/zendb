@@ -29,12 +29,13 @@ Docker:
 
 `export GOPATH=/some/go/dir`
 
-2. Fetch the project with go get 
+2. Fetch the project and dependencies with go get 
 
+`go get github.com/go-sql-driver/mysql`
 `go get github.com/rnpridgeon/zendb`
 
 3. Assuming you have all the depenencies in place and admin rights within zendesk execute the following from the project's root directory. 
 
 `./util/setup.sh` 
 
-Answer some questions, wait. Once populated you can execute `/util/initdb.sh -q mysql` for an example of how to connect using the mysql client. 
+Answer some questions, wait. Once populated you can execute `./util/initdb.sh -q mysql` for an example of how to connect using the mysql client. 
