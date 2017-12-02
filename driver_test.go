@@ -18,7 +18,8 @@ var (
 	conf Config
 	sink *mysql.MysqlProvider
 	source *zendesk.ZDProvider
-	requireMetrics []int64
+
+	needsUpdate []int64
 	ticketFields = make(map[string]int64)
 )
 
@@ -51,8 +52,8 @@ const (
 
 	insertTTFR = `
 		UPDATE tickets
-			JOIN ticket_metrics on tickets.id = ticket_metrics.ticket_id
-		SET tickets.ttfr = ticket_metrics.ttfr`
+			JOIN ticket_audits on tickets.id = ticket_audits.ticket_id
+		SET tickets.ttfr = ticket_audits.value`
 
 	insertSolved = `
 		UPDATE tickets
@@ -106,19 +107,21 @@ func transformPriority(obj interface{}) {
 	}
 }
 
+// Capture/Index ticket fields for ease of use in processing
 func captureFieldList(obj interface{}) {
 	ticketFields[obj.(*models.Ticket_field).Title]=obj.(*models.Ticket_field).Id
 }
 
+//Capture ticket id for each ticket processed by the sink
 func buildMetricsList(obj interface{}) {
-	requireMetrics = append(requireMetrics, obj.(*models.Ticket).Id)
+	needsUpdate = append(needsUpdate, obj.(*models.Ticket).Id)
 }
 
 // Test custom query/post processing
 func PostProcessing() {
 	defer TimeTrack(time.Now(), "Ticket post processing")
-	//clean-up array
-	requireMetrics = nil
+	//reset array
+	needsUpdate = nil
 
 	sink.ExecRaw(insertPriority)
 	sink.ExecRaw(insertComponent)
@@ -163,9 +166,9 @@ func Process() {
 	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"],0))
 	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
 	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_export"])
-	source.ExportTicketMetrics(requireMetrics , sink.ImportTicketMetrics)
+	source.ExportTicketMetrics(needsUpdate , sink.ImportTicketMetrics)
 	log.Printf("INFO: Fetching ticket audits since audit id %d", start["ticket_audit"])
-	source.ExportTicketAudits(start["ticket_audit"], sink.ImportAudit)
+	source.ExportTicketAudits(needsUpdate, sink.ImportAudit)
 	PostProcessing()
 }
 

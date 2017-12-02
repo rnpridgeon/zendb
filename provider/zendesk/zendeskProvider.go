@@ -56,7 +56,6 @@ type pager struct {
 
 func deserialize(request *http.Request, obj interface{}) {
 	resp, err := httpClient.Do(request)
-
 	if err != nil || resp.StatusCode != http.StatusOK {
 		log.Printf("ERROR: Unable to fetch from fetch from %s: %s", request.URL, resp.Status)
 	}
@@ -66,21 +65,6 @@ func deserialize(request *http.Request, obj interface{}) {
 	}
 
 	resp.Body.Close()
-}
-
-func deserializeTest(request *http.Request, obj interface{}) (interface{}){
-	resp, err := httpClient.Do(request)
-
-	if err != nil || resp.StatusCode != http.StatusOK {
-		log.Printf("ERROR: Unable to fetch from fetch from %s: %s", request.URL, resp.Status)
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(obj); err != nil {
-		log.Printf("Failed to decode %s: \n\t%s)", obj , err)
-	}
-
-	resp.Body.Close()
-	return obj
 }
 
 func (r *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (last int64) {
@@ -110,18 +94,18 @@ func (r *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (la
 	return rezponze.Payload[len(rezponze.Payload)-1].Id
 }
 
-func (r *ZDProvider) ExportTicketMetrics(tickets []int64, process func([]models.Ticket_metrics)) (last int64) {
-	if len(tickets) == 0 { return 0 }
+func (r *ZDProvider) ExportTicketMetrics(toProcess []int64, process func([]models.Ticket_metrics)) (last int64) {
+	if len(toProcess) == 0 { return 0 }
 
-	payload := make([]models.Ticket_metrics, len(tickets))
+	payload := make([]models.Ticket_metrics, len(toProcess))
 
 	var rezponze struct {
 		Payload models.Ticket_metrics `json:"ticket_metric"`
 	}
 
 	var index int64 = 0
-	for ticket := range tickets {
-		r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d/metrics.json", ticket))
+	for item := range toProcess {
+		r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d/metrics.json", item))
 
 		deserialize(r.Request, &rezponze)
 		if rezponze.Payload.Ticket_id > 0 {
@@ -261,22 +245,22 @@ func (r *ZDProvider) GetTicket(id int64, process func(ticket models.Ticket)) {
 	r.URL, _ = r.URL.Parse("../")
 }
 
-func (r *ZDProvider) ExportTicketAudits(since int64, process func([]models.Audit)) (last string) {
-	r.URL, _ = r.URL.Parse("./ticket_audits.json?cursor=")
+func (r *ZDProvider) ExportTicketAudits(toProcess []int64, process func(to[]models.Audit)) (last string) {
+		r.URL, _ = r.URL.Parse("./ticket_audits.json?cursor=")
 
-	var rezponze struct {
-		Before_URL			string			`json:"before_url"`
-		Before_Cursor		string			`json:"before_cursor"`
-		After_URL			string		 	`json:"after_url"`
-		After_Cursor		string			`json:"after_cursor"`
-		Payload 			[]models.Audit	`json:"audits"`
-	}
+		var rezponze struct {
+			Before_URL    string         `json:"before_url"`
+			Before_Cursor string         `json:"before_cursor"`
+			After_URL     string         `json:"after_url"`
+			After_Cursor  string         `json:"after_cursor"`
+			Payload       []models.Audit `json:"audits"`
+		}
 
 	for {
 		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
-		if rezponze.Before_Cursor == "" || rezponze.Payload[0].Id < since {
+		if rezponze.Before_Cursor == "" {
 			break;
 		}
 

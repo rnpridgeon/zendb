@@ -10,9 +10,15 @@ type utime int64
 
 func (u *utime) UnmarshalJSON(b []byte) error {
 	var tmp time.Time
+	*u = 0
+
 	err := json.Unmarshal(b, &tmp)
 
-	*u = utime(tmp.Unix())
+	if (utime(tmp.Unix())) > 0 {
+		*u = utime(tmp.Unix())
+		return err
+	}
+
 	return err
 }
 

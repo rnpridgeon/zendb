@@ -30,7 +30,7 @@ const(
 	TICKETS = "tickets"
 
 	TICKET_METRICS  = "ticket_metrics"
-	TICKET_AUDITS = "ticket_audit"
+	TICKET_AUDITS = "ticket_audits"
 )
 
 const (
@@ -676,7 +676,6 @@ func (p *MysqlProvider) updateAudit(tx *sql.Tx, entity models.Audit, sub models.
 	} else {
 		stmt, _ = p.dbClient.Prepare(updateTicketAudits)
 	}
-
 	_, err := stmt.Exec(entity.Author_id, sub.Value, entity.Ticket_id)
 
 	if err != nil {

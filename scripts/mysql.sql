@@ -134,7 +134,7 @@ CREATE TABLE IF NOT EXISTS ticket_metadata (
 		REFERENCES ticket_fields(`id`)
 );
 
-CREATE TABLE IF NOT EXISTS ticket_audit (
+CREATE TABLE IF NOT EXISTS ticket_audits (
 	ticket_id BIGINT UNSIGNED NOT NULL,
 	author_id BIGINT UNSIGNED NOT NULL,
 	value     BIGINT UNSIGNED,
@@ -167,7 +167,7 @@ CREATE TRIGGER increment_only BEFORE UPDATE ON zendb.sequence_table FOR EACH ROW
 //
 
 DELIMITER //
-CREATE TRIGGER increment_audit BEFORE UPDATE ON zendb.ticket_audit FOR EACH ROW
+CREATE TRIGGER increment_audit BEFORE UPDATE ON zendb.ticket_audits FOR EACH ROW
 	BEGIN
 		IF OLD.value > NEW.value THEN
 			SET NEW.value = OLD.value;
