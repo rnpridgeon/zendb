@@ -2,24 +2,24 @@ package zendb
 
 import (
 	"encoding/json"
+	"github.com/rnpridgeon/zendb/models"
 	"github.com/rnpridgeon/zendb/provider/mysql"
 	"github.com/rnpridgeon/zendb/provider/zendesk"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
-	"github.com/rnpridgeon/zendb/models"
-	"strings"
 )
 
 // TODO: make provider interface
 var (
-	conf Config
-	sink *mysql.MysqlProvider
+	conf   Config
+	sink   *mysql.MysqlProvider
 	source *zendesk.ZDProvider
 
-	needsUpdate []int64
+	needsUpdate  []int64
 	ticketFields = make(map[string]int64)
 )
 
@@ -29,36 +29,26 @@ type Config struct {
 }
 
 const (
-	insertPriority =`
+	insertPriority = `
 	UPDATE tickets
 			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
 			JOIN ticket_fields on field_id = ticket_fields.id
 		SET tickets.priority = ticket_metadata.transformed_value
 		WHERE ticket_fields.title = "Case Priority"`
 
-	insertComponent =`
+	insertComponent = `
 		UPDATE tickets
 			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
 			JOIN ticket_fields on field_id = ticket_fields.id
 		SET tickets.component = ticket_metadata.transformed_value
 		WHERE ticket_fields.title = "Component"`
 
-	insertVersion =`
+	insertVersion = `
 		UPDATE tickets
 			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
 			JOIN ticket_fields on field_id = ticket_fields.id
 		SET tickets.version = ticket_metadata.raw_value
 		WHERE ticket_fields.title like "%Kafka Version"`
-
-	insertTTFR = `
-		UPDATE tickets
-			JOIN ticket_audits on tickets.id = ticket_audits.ticket_id
-		SET tickets.ttfr = ticket_audits.value`
-
-	insertSolved = `
-		UPDATE tickets
-			JOIN ticket_metrics on tickets.id = ticket_metrics.ticket_id
-		SET tickets.solved_at = ticket_metrics.solved_at`
 )
 
 func transformComponent(obj interface{}) {
@@ -71,7 +61,7 @@ func transformComponent(obj interface{}) {
 		case strings.Contains(val, "c3") || strings.Contains(val, "confluent_control_center"):
 			entity.Transformed = "c3"
 		case strings.Contains(val, "broker"):
-			entity.Transformed="broker"
+			entity.Transformed = "broker"
 		case strings.Contains(val, "auto_data_balancer"):
 			entity.Transformed = "adb"
 		case strings.Contains(val, "_jms_"):
@@ -101,7 +91,7 @@ func transformPriority(obj interface{}) {
 	// TODO: Case Priority , build cache, pull from there
 	var priority int64 = 33471847
 	if entity.Id == priority && entity.Value != nil {
-		if len(entity.Value.(string)) >=2 {
+		if len(entity.Value.(string)) >= 2 {
 			entity.Transformed = entity.Value.(string)[:2]
 		}
 	}
@@ -109,7 +99,7 @@ func transformPriority(obj interface{}) {
 
 // Capture/Index ticket fields for ease of use in processing
 func captureFieldList(obj interface{}) {
-	ticketFields[obj.(*models.Ticket_field).Title]=obj.(*models.Ticket_field).Id
+	ticketFields[obj.(*models.Ticket_field).Title] = obj.(*models.Ticket_field).Id
 }
 
 //Capture ticket id for each ticket processed by the sink
@@ -126,23 +116,20 @@ func PostProcessing() {
 	sink.ExecRaw(insertPriority)
 	sink.ExecRaw(insertComponent)
 	sink.ExecRaw(insertVersion)
-	sink.ExecRaw(insertSolved)
-	sink.ExecRaw(insertTTFR)
+	//sink.ExecRaw(insertSolved)
+	//sink.ExecRaw(insertTTFR)
 }
 
 func TestScheduled(t *testing.T) {
 	InitialLoad()
 
-	scheduler := NewScheduler(1 * MINUTE, Process)
+	scheduler := NewScheduler(1*MINUTE, Process)
 	// Kill scheduler
 	go func() {
-		time.Sleep( 1 * MINUTE)
+		time.Sleep(1 * MINUTE)
 		scheduler.Stop()
 	}()
 	scheduler.Start()
-}
-func importGroups(g []models.Group){
-	sink.ImportGroups(g)
 }
 
 func InitialLoad() {
@@ -159,14 +146,14 @@ func InitialLoad() {
 func Process() {
 	start := sink.FetchState()
 	log.Printf("%+v\n", start)
-	log.Printf("INFO: Fetching organization updates %v...\n", time.Unix(start["organization_export"],0))
+	log.Printf("INFO: Fetching organization updates %v...\n", time.Unix(start["organization_export"], 0))
 	sink.CommitSequence("organization_export", source.ExportOrganizations(start["organization_export"], sink.ImportOrganizations))
-	log.Printf("INFO: Fetching User updates since %v...\n",time.Unix(start["user_export"],0) )
+	log.Printf("INFO: Fetching User updates since %v...\n", time.Unix(start["user_export"], 0))
 	sink.CommitSequence("user_export", source.ExportUsers(start["user_export"], sink.ImportUsers))
-	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"],0))
+	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"], 0))
 	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
 	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_export"])
-	source.ExportTicketMetrics(needsUpdate , sink.ImportTicketMetrics)
+	source.ExportTicketMetrics(needsUpdate, sink.ImportTicketMetrics)
 	log.Printf("INFO: Fetching ticket audits since audit id %d", start["ticket_audit"])
 	source.ExportTicketAudits(needsUpdate, sink.ImportAudit)
 	PostProcessing()

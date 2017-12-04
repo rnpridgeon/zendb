@@ -14,8 +14,6 @@ CREATE TABLE IF NOT EXISTS sequence_table (
 	PRIMARY KEY (`sequence_name`)
 );
 
-
-
 CREATE TABLE IF NOT EXISTS organization_fields (
 	id			    BIGINT UNSIGNED UNIQUE KEY NOT NULL,
 	sid			    VARCHAR(255) UNIQUE NOT NULL,
@@ -60,7 +58,7 @@ CREATE TABLE IF NOT EXISTS groups (
 	PRIMARY KEY(`id`)
 );
 
-/* group id is not mandatory for organizations. I still want them mapped for future cases */
+/* group id is not mandatory for organizations */
 INSERT INTO groups VALUES (0, "UNDEFINED", 0, 0);
 
 CREATE TABLE IF NOT EXISTS organizations (
@@ -134,6 +132,7 @@ CREATE TABLE IF NOT EXISTS ticket_metadata (
 		REFERENCES ticket_fields(`id`)
 );
 
+/* This only considers change evnets and their current value */
 CREATE TABLE IF NOT EXISTS ticket_audits (
 	ticket_id BIGINT UNSIGNED NOT NULL,
 	author_id BIGINT UNSIGNED NOT NULL,
@@ -148,13 +147,14 @@ CREATE TABLE IF NOT EXISTS ticket_audits (
 /* convenience table */
 CREATE VIEW ticket_view AS SELECT tickets.id, tickets.priority, organizations.name AS organization, users.name AS requester,
                              tickets.status, tickets.component, tickets.version, FROM_UNIXTIME(tickets.created_at) AS created_at,
-                             FROM_UNIXTIME(tickets.solved_at) AS solved_at
+                             ticket_metrics.ttfr, FROM_UNIXTIME(ticket_metrics.solved_at) AS solved_at
                            FROM tickets
                               JOIN organizations ON tickets.organization_id = organizations.id
-                              JOIN users ON tickets.requester_id = users.id;
+                              JOIN users ON tickets.requester_id = users.id
+															JOIN ticket_metrics on tickets.id = ticket_metrics.ticket_id;
 
 
-/* Ensure last id always increments, this couples us to the DB but simplifies code */
+/* Ensure last id always increments */
 DELIMITER //
 CREATE TRIGGER increment_only BEFORE UPDATE ON zendb.sequence_table FOR EACH ROW
   BEGIN
@@ -166,6 +166,7 @@ CREATE TRIGGER increment_only BEFORE UPDATE ON zendb.sequence_table FOR EACH ROW
   END
 //
 
+/* Ensure time tracking value always increments */
 DELIMITER //
 CREATE TRIGGER increment_audit BEFORE UPDATE ON zendb.ticket_audits FOR EACH ROW
 	BEGIN

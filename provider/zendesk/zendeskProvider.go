@@ -1,15 +1,14 @@
 package zendesk
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/rnpridgeon/zendb/models"
+	"log"
 	"net/http"
 	"strconv"
-	"fmt"
-	"log"
-	"encoding/json"
 	"time"
 )
-
 
 func timeTrack(start time.Time, name string) {
 	elapsed := time.Since(start)
@@ -95,7 +94,9 @@ func (r *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (la
 }
 
 func (r *ZDProvider) ExportTicketMetrics(toProcess []int64, process func([]models.Ticket_metrics)) (last int64) {
-	if len(toProcess) == 0 { return 0 }
+	if len(toProcess) == 0 {
+		return 0
+	}
 
 	payload := make([]models.Ticket_metrics, len(toProcess))
 
@@ -104,9 +105,8 @@ func (r *ZDProvider) ExportTicketMetrics(toProcess []int64, process func([]model
 	}
 
 	var index int64 = 0
-	for item := range toProcess {
+	for _, item := range toProcess {
 		r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d/metrics.json", item))
-
 		deserialize(r.Request, &rezponze)
 		if rezponze.Payload.Ticket_id > 0 {
 			payload[index] = rezponze.Payload
@@ -142,7 +142,7 @@ func (r *ZDProvider) ExportGroups(process func([]models.Group)) (last int64) {
 
 	// clean-up
 	r.URL, _ = r.URL.Parse("./")
-//	return rezponze.Payload[len(rezponze.Payload)-1].Id
+	//	return rezponze.Payload[len(rezponze.Payload)-1].Id
 	return 0
 }
 
@@ -173,7 +173,7 @@ func (r *ZDProvider) ExportOrganizations(since int64, process func([]models.Orga
 }
 
 func (r *ZDProvider) GetOrganization(id int64, process func(organization models.Organization)) {
-	r.URL, _ = r.URL.Parse(fmt.Sprintf("./organizationss/%s.json",strconv.FormatInt(id, 10)))
+	r.URL, _ = r.URL.Parse(fmt.Sprintf("./organizationss/%s.json", strconv.FormatInt(id, 10)))
 
 	var payload models.Organization
 	deserialize(r.Request, &payload)
@@ -236,7 +236,7 @@ func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (
 }
 
 func (r *ZDProvider) GetTicket(id int64, process func(ticket models.Ticket)) {
-	r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d.json",id))
+	r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d.json", id))
 
 	var payload models.Ticket
 	deserialize(r.Request, &payload)
@@ -245,32 +245,29 @@ func (r *ZDProvider) GetTicket(id int64, process func(ticket models.Ticket)) {
 	r.URL, _ = r.URL.Parse("../")
 }
 
-func (r *ZDProvider) ExportTicketAudits(toProcess []int64, process func(to[]models.Audit)) (last string) {
-		r.URL, _ = r.URL.Parse("./ticket_audits.json?cursor=")
+func (r *ZDProvider) ExportTicketAudits(toProcess []int64, process func(to []models.Audit)) (last string) {
+	r.URL, _ = r.URL.Parse("./ticket_audits.json?cursor=")
 
-		var rezponze struct {
-			Before_URL    string         `json:"before_url"`
-			Before_Cursor string         `json:"before_cursor"`
-			After_URL     string         `json:"after_url"`
-			After_Cursor  string         `json:"after_cursor"`
-			Payload       []models.Audit `json:"audits"`
-		}
+	var rezponze struct {
+		Next   		 string         `json:"before_url"`
+		Previous     string         `json:"after_url"`
+		Payload      []models.Audit `json:"audits"`
+	}
 
 	for {
 		deserialize(r.Request, &rezponze)
 
 		process(rezponze.Payload)
-		if rezponze.Before_Cursor == "" {
-			break;
+		if rezponze.Next == "" {
+			break
 		}
-
-		r.URL, _ = r.URL.Parse(rezponze.Before_URL)
-		rezponze.Before_Cursor = ""
+		r.URL, _ = r.URL.Parse(rezponze.Next)
+		rezponze.Next = ""
 	}
 
 	// clean-up
 	r.URL, _ = r.URL.Parse("./")
-	return rezponze.After_Cursor
+	return rezponze.Previous
 }
 
 func init() {
