@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"sync"
 )
 
 func timeTrack(start time.Time, name string) {
@@ -29,7 +30,7 @@ type ZendeskConfig struct {
 }
 
 type ZDProvider struct {
-	*http.Request
+	sync.Pool
 }
 
 func Open(client *http.Client, conf *ZendeskConfig) (handle *ZDProvider) {
@@ -38,10 +39,14 @@ func Open(client *http.Client, conf *ZendeskConfig) (handle *ZDProvider) {
 }
 
 func newHandler(conf *ZendeskConfig) (handle *ZDProvider) {
-	req, _ := http.NewRequest("GET", fmt.Sprintf(base, conf.Subdomain), nil)
-	handle = &ZDProvider{req}
-	handle.Header = header
-	handle.SetBasicAuth(conf.User, conf.Password)
+	handle = &ZDProvider{
+		sync.Pool{New: func() interface{} {
+			req, _ := http.NewRequest("GET", fmt.Sprintf(base, conf.Subdomain), nil)
+			req.Header = header
+			req.SetBasicAuth(conf.User, conf.Password)
+			return req
+		}},
+	}
 
 	return handle
 }
@@ -56,6 +61,10 @@ type pager struct {
 func deserialize(request *http.Request, obj interface{}) {
 	resp, err := httpClient.Do(request)
 	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp == nil {
+			log.Println(err)
+			return
+		}
 		log.Printf("ERROR: Unable to fetch from fetch from %s: %s", request.URL, resp.Status)
 	}
 
@@ -66,8 +75,16 @@ func deserialize(request *http.Request, obj interface{}) {
 	resp.Body.Close()
 }
 
-func (r *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (last int64) {
+func (p *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (last int64) {
+	defer timeTrack(time.Now(), "Export Metrics")
+
+	r := p.Get().(*http.Request)
 	r.URL, _ = r.URL.Parse("./ticket_fields.json")
+
+	defer  func() {
+		r.URL, _ = r.URL.Parse("./")
+		p.Put(r)
+	}()
 
 	var rezponze struct {
 		pager
@@ -76,7 +93,7 @@ func (r *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (la
 
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
-		deserialize(r.Request, &rezponze)
+		deserialize(r, &rezponze)
 
 		process(rezponze.Payload)
 
@@ -88,12 +105,18 @@ func (r *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (la
 		break
 	}
 
-	// clean-up
-	r.URL, _ = r.URL.Parse("./")
 	return rezponze.Payload[len(rezponze.Payload)-1].Id
 }
 
-func (r *ZDProvider) ExportTicketMetrics(toProcess []int64, process func([]models.Ticket_metrics)) (last int64) {
+func (p *ZDProvider) ExportTicketMetrics(toProcess []int64, process func([]models.Ticket_metrics)) (last int64) {
+	defer timeTrack(time.Now(), "Export Metrics")
+
+	r := p.Get().(*http.Request)
+
+	defer func() {
+		p.Put(r)
+	}()
+
 	if len(toProcess) == 0 {
 		return 0
 	}
@@ -107,7 +130,7 @@ func (r *ZDProvider) ExportTicketMetrics(toProcess []int64, process func([]model
 	var index int64 = 0
 	for _, item := range toProcess {
 		r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d/metrics.json", item))
-		deserialize(r.Request, &rezponze)
+		deserialize(r, &rezponze)
 		if rezponze.Payload.Ticket_id > 0 {
 			payload[index] = rezponze.Payload
 			index++
@@ -116,10 +139,20 @@ func (r *ZDProvider) ExportTicketMetrics(toProcess []int64, process func([]model
 	}
 
 	process(payload[:index])
+
 	return index
 }
 
-func (r *ZDProvider) ExportGroups(process func([]models.Group)) (last int64) {
+func (p *ZDProvider) ExportGroups(process func([]models.Group)) (last int64) {
+	defer timeTrack(time.Now(), "Export Groups")
+
+	// ensure url gets cleaned up and request is put back in the queue
+	r := p.Get().(*http.Request)
+	defer  func() {
+		r.URL, _ = r.URL.Parse("./")
+		p.Put(r)
+	}()
+
 	r.URL, _ = r.URL.Parse("./groups.json")
 
 	var rezponze struct {
@@ -129,7 +162,7 @@ func (r *ZDProvider) ExportGroups(process func([]models.Group)) (last int64) {
 
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
-		deserialize(r.Request, &rezponze)
+		deserialize(r, &rezponze)
 
 		process(rezponze.Payload)
 		if rezponze.Next != "" {
@@ -140,15 +173,20 @@ func (r *ZDProvider) ExportGroups(process func([]models.Group)) (last int64) {
 		break
 	}
 
-	// clean-up
-	r.URL, _ = r.URL.Parse("./")
-	//	return rezponze.Payload[len(rezponze.Payload)-1].Id
 	return 0
 }
 
-func (r *ZDProvider) ExportOrganizations(since int64, process func([]models.Organization)) (last int64) {
+func (p *ZDProvider) ExportOrganizations(since int64, process func([]models.Organization)) (last int64) {
+	defer timeTrack(time.Now(), "Export Organizations")
+	r := p.Get().(*http.Request)
+
 	r.URL, _ = r.URL.Parse(fmt.Sprintf("./incremental/organizations.json?start_time=%s",
 		strconv.FormatInt(since, 10)))
+
+	defer func(r *http.Request){
+		r.URL, _ = r.URL.Parse("../")
+		p.Put(r)
+	}(r)
 
 	var rezponze struct {
 		pager
@@ -157,7 +195,7 @@ func (r *ZDProvider) ExportOrganizations(since int64, process func([]models.Orga
 
 	//iterate over pages, TODO: this needs to be moved out and cleaned up to keep things DRY
 	for {
-		deserialize(r.Request, &rezponze)
+		deserialize(r, &rezponze)
 
 		process(rezponze.Payload)
 		if rezponze.Count >= 1000 {
@@ -167,24 +205,39 @@ func (r *ZDProvider) ExportOrganizations(since int64, process func([]models.Orga
 		}
 		break
 	}
-	// clean-up
-	r.URL, _ = r.URL.Parse("../")
+
 	return rezponze.End
 }
 
-func (r *ZDProvider) GetOrganization(id int64, process func(organization models.Organization)) {
+func (p *ZDProvider) GetOrganization(id int64, process func(organization models.Organization)) {
+	defer timeTrack(time.Now(), "Export Organizations")
+
+	r := p.Get().(*http.Request)
 	r.URL, _ = r.URL.Parse(fmt.Sprintf("./organizationss/%s.json", strconv.FormatInt(id, 10)))
 
+	defer func(r *http.Request) {
+		r.URL, _ = r.URL.Parse("../")
+		p.Put(r)
+	}(r)
+
 	var payload models.Organization
-	deserialize(r.Request, &payload)
+	deserialize(r, &payload)
+
 	process(payload)
 
-	r.URL, _ = r.URL.Parse("../")
 }
 
-func (r *ZDProvider) ExportUsers(since int64, process func([]models.User)) (last int64) {
+func (p *ZDProvider) ExportUsers(since int64, process func([]models.User)) (last int64) {
+	defer timeTrack(time.Now(), "Export Users")
+
+	r := p.Get().(*http.Request)
 	r.URL, _ = r.URL.Parse(fmt.Sprintf("./incremental/users.json?start_time=%s",
 		strconv.FormatInt(since, 10)))
+
+	defer func(r *http.Request){
+		r.URL, _ = r.URL.Parse("../")
+		p.Put(r)
+	}(r)
 
 	var rezponze struct {
 		pager
@@ -193,7 +246,7 @@ func (r *ZDProvider) ExportUsers(since int64, process func([]models.User)) (last
 
 	//iterate over pages, TODO: this needs to be moved out to keep things DRY
 	for {
-		deserialize(r.Request, &rezponze)
+		deserialize(r, &rezponze)
 
 		process(rezponze.Payload)
 		if rezponze.Count >= 1000 {
@@ -204,13 +257,19 @@ func (r *ZDProvider) ExportUsers(since int64, process func([]models.User)) (last
 		break
 	}
 
-	// clean-up
-	r.URL, _ = r.URL.Parse("../")
 	return rezponze.End
 }
 
-func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (last int64) {
+func (p *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (last int64) {
+	defer timeTrack(time.Now(), "Export Tickets")
+
+	r := p.Get().(*http.Request)
 	r.URL, _ = r.URL.Parse(fmt.Sprintf("./incremental/tickets.json?start_time=%d", since))
+
+	defer func(r *http.Request){
+		r.URL, _ = r.URL.Parse("../")
+		p.Put(r)
+	}(r)
 
 	var rezponze struct {
 		pager
@@ -219,7 +278,7 @@ func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (
 
 	//iterate over pages, TODO: this needs to be moved out to keep things DRY
 	for {
-		deserialize(r.Request, &rezponze)
+		deserialize(r, &rezponze)
 
 		process(rezponze.Payload)
 		if rezponze.Count >= 1000 {
@@ -230,44 +289,54 @@ func (r *ZDProvider) ExportTickets(since int64, process func([]models.Ticket)) (
 		break
 	}
 
-	// clean-up
-	r.URL, _ = r.URL.Parse("../")
 	return rezponze.End
 }
 
-func (r *ZDProvider) GetTicket(id int64, process func(ticket models.Ticket)) {
+func (p *ZDProvider) GetTicket(id int64, process func(ticket models.Ticket)) {
+	defer timeTrack(time.Now(), "Export Tickets")
+
+	r := p.Get().(*http.Request)
 	r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d.json", id))
 
-	var payload models.Ticket
-	deserialize(r.Request, &payload)
-	process(payload)
+	defer func(r *http.Request){
+		r.URL, _ = r.URL.Parse("../")
+		p.Put(r)
+	}(r)
 
-	r.URL, _ = r.URL.Parse("../")
+	var payload models.Ticket
+
+	deserialize(r, &payload)
+	process(payload)
 }
 
-func (r *ZDProvider) ExportTicketAudits(toProcess []int64, process func(to []models.Audit)) (last string) {
-	r.URL, _ = r.URL.Parse("./ticket_audits.json?cursor=")
+func (p *ZDProvider) ExportTicketAudits(toProcess []int64, process func(to []models.Audit)) (last int64) {
+	defer timeTrack(time.Now(), "Export Audits")
+
+	r := p.Get().(*http.Request)
+
+	defer func(r *http.Request) {
+		p.Put(r)
+	}(r)
+
+	if len(toProcess) == 0 {
+		return 0
+	}
 
 	var rezponze struct {
-		Next   		 string         `json:"before_url"`
-		Previous     string         `json:"after_url"`
-		Payload      []models.Audit `json:"audits"`
+		Payload []models.Audit `json:"audits"`
 	}
 
-	for {
-		deserialize(r.Request, &rezponze)
-
-		process(rezponze.Payload)
-		if rezponze.Next == "" {
-			break
+	var index int64 = 0
+	for _, item := range toProcess {
+		r.URL, _ = r.URL.Parse(fmt.Sprintf("./tickets/%d/audits.json", item))
+		deserialize(r, &rezponze)
+		if len(rezponze.Payload) > 0 {
+			process(rezponze.Payload)
 		}
-		r.URL, _ = r.URL.Parse(rezponze.Next)
-		rezponze.Next = ""
+		r.URL, _ = r.URL.Parse("../../")
 	}
 
-	// clean-up
-	r.URL, _ = r.URL.Parse("./")
-	return rezponze.Previous
+	return index
 }
 
 func init() {

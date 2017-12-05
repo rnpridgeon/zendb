@@ -55,8 +55,8 @@ const (
 	importUsers         = "INSERT INTO " + USERS + "(id, email, name, created_at, organization_id, default_group_id, role, time_zone, " +
 		"updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?);"
 	importTickets = "INSERT INTO " + TICKETS + "(id, subject, status, requester_id, submitter_id, assignee_id, " +
-		"organization_id , group_id, created_at, updated_at, version, component, priority, ttfr, solved_at) " +
-		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
+		"organization_id , group_id, created_at, updated_at, cause, version, component, priority, ttfr, solved_at) " +
+		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
 	importTicketMetrics = "INSERT INTO " + TICKET_METRICS + "(id, created_at, updated_at, ticket_id, replies, ttfr, solved_at) " +
 		"VALUES(?, ?, ?, ?, ?, ?, ?);"
 	importTicketAudits = "INSERT INTO " + TICKET_AUDITS + "(ticket_id, author_id, value) VALUES(?, ?, ?);"
@@ -147,7 +147,7 @@ func (p *MysqlProvider) CommitSequence(name string, val int64) {
 	tx.Commit()
 }
 
-func (p *MysqlProvider) commitSequence(tx *sql.Tx,name string, val int64) {
+func (p *MysqlProvider) commitSequence(tx *sql.Tx, name string, val int64) {
 	stmt, _ := tx.Prepare(importSequence)
 	_, err := stmt.Exec(name, val)
 	if err != nil {
@@ -385,7 +385,7 @@ func (p *MysqlProvider) ImportTickets(entities []models.Ticket) {
 		}
 
 		_, err := stmt.Exec(e.Id, e.Subject, e.Status, e.Requester_id, e.Submitter_id, e.Assignee_id,
-			e.Organization_id, e.Group_id, e.Created_at, e.Updated_at, "", "", "", 0, 0)
+			e.Organization_id, e.Group_id, e.Created_at, e.Updated_at, "", "", "", "", 0, 0)
 
 		p.ImportTicketFieldValues(e.Id, e.Custom_fields)
 
@@ -633,7 +633,6 @@ func (p *MysqlProvider) ImportAudit(entities []models.Audit) {
 		for _, f := range p.preEvent[TICKET_AUDITS] {
 			f(&e)
 		}
-
 		for _, se := range e.Events {
 			if se.Type == "Change" && se.Field_name == fieldID {
 				_, err := stmt.Exec(e.Ticket_id, e.Author_id, se.Value)
@@ -658,6 +657,8 @@ func (p *MysqlProvider) ImportAudit(entities []models.Audit) {
 }
 
 func (p *MysqlProvider) updateAudit(tx *sql.Tx, entity models.Audit, sub models.Event) {
+	defer timeTrack(time.Now(), "Audit update")
+
 	var stmt *sql.Stmt
 	if tx != nil {
 		stmt, _ = tx.Prepare(updateTicketAudits)

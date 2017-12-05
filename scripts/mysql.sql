@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS tickets (
 	group_id        BIGINT UNSIGNED NOT NULL,
 	created_at      INT UNSIGNED NOT NULL,
 	updated_at      INT UNSIGNED NOT NULL,
+	cause						VARCHAR(55) DEFAULT '-',
 	version		    	VARCHAR(55) DEFAULT '-',
   component       VARCHAR(55) DEFAULT '-',
   priority        VARCHAR(10) DEFAULT 'undefined',

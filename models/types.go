@@ -27,20 +27,20 @@ func (u *utime) UnmarshalJSON(b []byte) error {
 // Notes: resource type: Data
 // tickets - basic ticket object
 type Ticket struct {
-	Id                  int64                `json:"id"`
-	Subject             string               `json:"subject"`
-	Priority            string               `json:"priority"`
-	Status              string               `json:"status"`
-	Recipient           string               `json:"recipient"`
-	Requester_id        int64                `json:"requester_id"`
-	Submitter_id        int64                `json:"submitter_id"`
-	Assignee_id         int64                `json:"assignee_id"`
-	Organization_id     int64                `json:"organization_id"`
-	Group_id            int64                `json:"group_id"`
-	Custom_fields       []Custom_fields      `json:"custom_fields"`
+	Id                  int64               `json:"id"`
+	Subject             string              `json:"subject"`
+	Priority            string              `json:"priority"`
+	Status              string              `json:"status"`
+	Recipient           string              `json:"recipient"`
+	Requester_id        int64               `json:"requester_id"`
+	Submitter_id        int64               `json:"submitter_id"`
+	Assignee_id         int64               `json:"assignee_id"`
+	Organization_id     int64               `json:"organization_id"`
+	Group_id            int64               `json:"group_id"`
+	Custom_fields       []Custom_fields     `json:"custom_fields"`
 	Satisfaction_rating Satisfaction_rating `json:"satisfaction_rating"`
-	Created_at          utime                `json:"created_at"`
-	Updated_at          utime                `json:"updated_at"`
+	Created_at          utime               `json:"created_at"`
+	Updated_at          utime               `json:"updated_at"`
 }
 
 type Ticket_Enhanced struct {
@@ -96,27 +96,27 @@ type Ticket_field struct {
 // Notes: resource type: Data
 // ticket_metrics - ticket life-cycle metrics
 type Ticket_metrics struct {
-	Id                               int64              `json:"id"`
-	Ticket_id                        int64              `json:"ticket_id"`
-	URL                              string             `json:"url"`
-	Group_statisons                  int64              `json:"group_stations"`
-	Assignee_stations                int64              `json:"assignee_stations"`
-	Reopens                          int64              `json:"reopens"`
-	Replies                          int64              `json:"replies"`
-	Assignee_updated_at              utime              `json:"assignee_updated_at"`
-	Requester_updated_at             utime              `json:"requester_updated_at"`
-	Status_updated_at                utime              `json:"status_updated_at"`
-	Initially_assigned_at            utime              `json:"initially_assigned_at"`
-	Assigned_at                      utime              `json:"assigned_at"`
-	Solved_at                        utime              `json:"solved_at"`
-	Latest_comment_added_at          utime              `json:"latest_comment_added_at"`
+	Id                               int64             `json:"id"`
+	Ticket_id                        int64             `json:"ticket_id"`
+	URL                              string            `json:"url"`
+	Group_statisons                  int64             `json:"group_stations"`
+	Assignee_stations                int64             `json:"assignee_stations"`
+	Reopens                          int64             `json:"reopens"`
+	Replies                          int64             `json:"replies"`
+	Assignee_updated_at              utime             `json:"assignee_updated_at"`
+	Requester_updated_at             utime             `json:"requester_updated_at"`
+	Status_updated_at                utime             `json:"status_updated_at"`
+	Initially_assigned_at            utime             `json:"initially_assigned_at"`
+	Assigned_at                      utime             `json:"assigned_at"`
+	Solved_at                        utime             `json:"solved_at"`
+	Latest_comment_added_at          utime             `json:"latest_comment_added_at"`
 	First_resolution_time_in_minutes business_calendar `json:"first_resolution_time_in_minutes"`
 	Reply_time_in_minutes            business_calendar `json:"reply_time_in_minutes"`
 	Full_resolution_time_in_minutes  business_calendar `json:"full_resolution_time_in_minutes"`
 	Agent_wait_time_in_minutes       business_calendar `json:"agent_wait_time_in_minutes"`
 	Requester_wait_time_in_minutes   business_calendar `json:"requester_wait_time_in_minutes"`
-	Created_at                       utime              `json:"created_at"`
-	Updated_at                       utime              `json:"updated_at"`
+	Created_at                       utime             `json:"created_at"`
+	Updated_at                       utime             `json:"updated_at"`
 }
 
 // Doc: derived from example in ticket_metrics, no direct documentation found
@@ -163,8 +163,8 @@ type Satisfaction_rating struct {
 	Requester_id int64  `json:"requester_id"`
 	Ticket_id    int64  `json:"ticket_id"`
 	Score        string `json:"score"`
-	Created_at   utime `json:"created_at"`
-	Updated_at   utime `json:"updated_at"`
+	Created_at   utime  `json:"created_at"`
+	Updated_at   utime  `json:"updated_at"`
 	Comment      string `json:"comment"`
 }
 
@@ -178,10 +178,10 @@ type User struct {
 	Name                  string            `json:"name"`
 	Active                bool              `json:"active"`
 	Alias                 string            `json:"alias"`
-	Created_at            utime            `json:"created_at"`
+	Created_at            utime             `json:"created_at"`
 	Details               string            `json:"details"`
 	External_id           string            `json:"exteranl_id"`
-	Last_login_at         utime            `json:"last_login_at"`
+	Last_login_at         utime             `json:"last_login_at"`
 	Locale                string            `json:"locale"`
 	Locale_id             int64             `json:"locale_id"`
 	Moderator             bool              `json:"moderator"`

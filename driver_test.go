@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"sync"
 )
 
 // TODO: make provider interface
@@ -49,6 +50,14 @@ const (
 			JOIN ticket_fields on field_id = ticket_fields.id
 		SET tickets.version = ticket_metadata.raw_value
 		WHERE ticket_fields.title like "%Kafka Version"`
+
+	insertRCA = `
+		UPDATE tickets
+			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
+			JOIN ticket_fields on field_id = ticket_fields.id
+		SET tickets.cause = ticket_metadata.raw_value
+		WHERE ticket_fields.title like "%Kafka Version"`
+
 )
 
 func transformComponent(obj interface{}) {
@@ -146,16 +155,24 @@ func InitialLoad() {
 func Process() {
 	start := sink.FetchState()
 	log.Printf("%+v\n", start)
+
 	log.Printf("INFO: Fetching organization updates %v...\n", time.Unix(start["organization_export"], 0))
 	sink.CommitSequence("organization_export", source.ExportOrganizations(start["organization_export"], sink.ImportOrganizations))
+
 	log.Printf("INFO: Fetching User updates since %v...\n", time.Unix(start["user_export"], 0))
 	sink.CommitSequence("user_export", source.ExportUsers(start["user_export"], sink.ImportUsers))
+
 	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"], 0))
 	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
+
+	var wg sync.WaitGroup
+	wg.Add(2)
 	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_export"])
-	source.ExportTicketMetrics(needsUpdate, sink.ImportTicketMetrics)
+	go source.ExportTicketMetrics(needsUpdate, sink.ImportTicketMetrics)
+
 	log.Printf("INFO: Fetching ticket audits since audit id %d", start["ticket_audit"])
-	source.ExportTicketAudits(needsUpdate, sink.ImportAudit)
+	go source.ExportTicketAudits(needsUpdate, sink.ImportAudit)
+	wg.Wait()
 	PostProcessing()
 }
 
