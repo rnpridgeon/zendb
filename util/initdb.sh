@@ -11,8 +11,9 @@ init () {
 }
 
 configure() {
+	BASE=$(realpath ./)
 	SQL="$(realpath ../scripts)"
-
+	echo $BASE
 	# Read configuration file 
 	newProperties ../exclude/conf.json
 
@@ -31,6 +32,7 @@ start() {
 		-e "MYSQL_USER=$USR" \
 		-e "MYSQL_PASSWORD=$PAS" \
 		-v $SQL:/docker-entrypoint-initdb.d \
+		-v $BASE:/etc/mysql/conf.d \
 		$TAG --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci >/dev/null 
 	fatal $? "FATAL: database container failed to start"
 
@@ -43,13 +45,13 @@ start() {
 		echo "Initializing database..."
 		if [ "$timer" -gt "$timeout" ]; then 
 			fatal 1 "FATAL: database failed to start prior to timeout"
-			docker log test-mysql
+			docker logs -f test-mysql
 			clean
 		fi
 
 		sleep 5;
 	
-		mysql -u$USR -p$PAS -h $HOSTNAME -P $PORT -e '\s' 2>/dev/null
+		mysql -u$USR -p$PAS -h $HOSTNAME -P $PORT --protocol=tcp -e '\s' 2>/dev/null
 
 		complete=$?
 		timer=$(($timer + 5))

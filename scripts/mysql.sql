@@ -148,7 +148,8 @@ CREATE TABLE IF NOT EXISTS ticket_audits (
 /* convenience table */
 CREATE VIEW ticket_view AS SELECT tickets.id, tickets.priority, organizations.name AS organization, users.name AS requester,
                              tickets.status, tickets.component, tickets.version, FROM_UNIXTIME(tickets.created_at) AS created_at,
-                             ticket_metrics.ttfr, FROM_UNIXTIME(ticket_metrics.solved_at) AS solved_at
+														 FROM_UNIXTIME(tickets.updated_at) AS updated_at, ticket_metrics.ttfr,
+														 FROM_UNIXTIME(ticket_metrics.solved_at) AS solved_at
                            FROM tickets
                               JOIN organizations ON tickets.organization_id = organizations.id
                               JOIN users ON tickets.requester_id = users.id

@@ -59,6 +59,8 @@ type pager struct {
 }
 
 func deserialize(request *http.Request, obj interface{}) {
+	defer timeTrack(time.Now(), fmt.Sprintf("Fetching %s", request.URL.String()))
+
 	resp, err := httpClient.Do(request)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		if resp == nil {
@@ -76,7 +78,7 @@ func deserialize(request *http.Request, obj interface{}) {
 }
 
 func (p *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (last int64) {
-	defer timeTrack(time.Now(), "Export Metrics")
+	defer timeTrack(time.Now(), "Export TicketFields")
 
 	r := p.Get().(*http.Request)
 	r.URL, _ = r.URL.Parse("./ticket_fields.json")
@@ -110,6 +112,10 @@ func (p *ZDProvider) ExportTicketFields(process func([]models.Ticket_field)) (la
 
 func (p *ZDProvider) ExportTicketMetrics(toProcess []int64, process func([]models.Ticket_metrics)) (last int64) {
 	defer timeTrack(time.Now(), "Export Metrics")
+
+	if len(toProcess) == 0 {
+		return
+	}
 
 	r := p.Get().(*http.Request)
 
@@ -311,6 +317,9 @@ func (p *ZDProvider) GetTicket(id int64, process func(ticket models.Ticket)) {
 
 func (p *ZDProvider) ExportTicketAudits(toProcess []int64, process func(to []models.Audit)) (last int64) {
 	defer timeTrack(time.Now(), "Export Audits")
+	if len(toProcess) == 0 {
+		return
+	}
 
 	r := p.Get().(*http.Request)
 

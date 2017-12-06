@@ -30,16 +30,14 @@ func NewScheduler(tickTime time.Duration, run func()) Scheduler {
 }
 
 func (s *Scheduler) Start() {
+	defer s.Ticker.Stop()
 	log.Print("INFO: Starting scheduler...")
-	//Execute task immediately, schedule subsequent runs
-	s.run()
 	for {
 		select {
 		case <-s.Ticker.C:
 			log.Print("INFO: Executing task")
 			s.run()
 		case <-s.done:
-			s.Ticker.Stop()
 			log.Print("INFO: Stopping scheduler")
 			return
 		}

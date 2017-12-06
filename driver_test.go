@@ -131,14 +131,15 @@ func PostProcessing() {
 
 func TestScheduled(t *testing.T) {
 	InitialLoad()
+	s := NewScheduler(8 * SECOND, Process)
 
-	scheduler := NewScheduler(1*MINUTE, Process)
-	// Kill scheduler
 	go func() {
-		time.Sleep(1 * MINUTE)
-		scheduler.Stop()
+		time.Sleep(10 * SECOND)
+		s.Stop()
 	}()
-	scheduler.Start()
+
+	s.Start()
+	return
 }
 
 func InitialLoad() {
@@ -149,12 +150,10 @@ func InitialLoad() {
 
 	source.ExportTicketFields(sink.ImportTicketFields)
 	source.ExportGroups(sink.ImportGroups)
-	Process()
 }
 
 func Process() {
 	start := sink.FetchState()
-	log.Printf("%+v\n", start)
 
 	log.Printf("INFO: Fetching organization updates %v...\n", time.Unix(start["organization_export"], 0))
 	sink.CommitSequence("organization_export", source.ExportOrganizations(start["organization_export"], sink.ImportOrganizations))
@@ -168,10 +167,16 @@ func Process() {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_export"])
-	go source.ExportTicketMetrics(needsUpdate, sink.ImportTicketMetrics)
+	go func(){
+		source.ExportTicketMetrics(needsUpdate, sink.ImportTicketMetrics)
+		wg.Done()
+	}()
 
 	log.Printf("INFO: Fetching ticket audits since audit id %d", start["ticket_audit"])
-	go source.ExportTicketAudits(needsUpdate, sink.ImportAudit)
+	go func() {
+		source.ExportTicketAudits(needsUpdate, sink.ImportAudit)
+		wg.Done()
+	}()
 	wg.Wait()
 	PostProcessing()
 }
