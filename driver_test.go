@@ -56,7 +56,7 @@ const (
 			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
 			JOIN ticket_fields on field_id = ticket_fields.id
 		SET tickets.cause = ticket_metadata.raw_value
-		WHERE ticket_fields.title like "%Kafka Version"`
+		WHERE ticket_fields.title like "Root Cause"`
 
 )
 
@@ -125,6 +125,7 @@ func PostProcessing() {
 	sink.ExecRaw(insertPriority)
 	sink.ExecRaw(insertComponent)
 	sink.ExecRaw(insertVersion)
+	sink.ExecRaw(insertRCA)
 	//sink.ExecRaw(insertSolved)
 	//sink.ExecRaw(insertTTFR)
 }
