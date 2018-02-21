@@ -1,17 +1,16 @@
 package zendb
 
 import (
-	"encoding/json"
+	//"os"
+	"fmt"
+	"log"
+	"strconv"
+	"testing"
+
+	"github.com/rnpridgeon/utils/configuration"
 	"github.com/rnpridgeon/zendb/models"
 	"github.com/rnpridgeon/zendb/provider/mysql"
 	"github.com/rnpridgeon/zendb/provider/zendesk"
-	"log"
-	"net/http"
-	"os"
-	"strings"
-	"testing"
-	"time"
-	"sync"
 )
 
 // TODO: make provider interface
@@ -20,8 +19,7 @@ var (
 	sink   *mysql.MysqlProvider
 	source *zendesk.ZDProvider
 
-	needsUpdate  []int64
-	ticketFields = make(map[string]int64)
+	requestQueue = make(chan *zendesk.Task, 100)
 )
 
 type Config struct {
@@ -29,171 +27,196 @@ type Config struct {
 	DBconf *mysql.MysqlConfig     `json:"database"`
 }
 
-const (
-	insertPriority = `
-	UPDATE tickets
-			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
-			JOIN ticket_fields on field_id = ticket_fields.id
-		SET tickets.priority = ticket_metadata.transformed_value
-		WHERE ticket_fields.title = "Case Priority"`
-
-	insertComponent = `
-		UPDATE tickets
-			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
-			JOIN ticket_fields on field_id = ticket_fields.id
-		SET tickets.component = ticket_metadata.transformed_value
-		WHERE ticket_fields.title = "Component"`
-
-	insertVersion = `
-		UPDATE tickets
-			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
-			JOIN ticket_fields on field_id = ticket_fields.id
-		SET tickets.version = ticket_metadata.raw_value
-		WHERE ticket_fields.title like "%Kafka Version"`
-
-	insertRCA = `
-		UPDATE tickets
-			JOIN ticket_metadata on tickets.id = ticket_metadata.ticket_id
-			JOIN ticket_fields on field_id = ticket_fields.id
-		SET tickets.cause = ticket_metadata.raw_value
-		WHERE ticket_fields.title like "Root Cause"`
-
-)
-
-func transformComponent(obj interface{}) {
-	entity := obj.(*models.Custom_fields)
-	//TODO: Component, build cache pull from there
-	var component int64 = 33020448
-	if entity.Id == component && entity.Value != nil {
-		val := entity.Value.(string)
-		switch {
-		case strings.Contains(val, "c3") || strings.Contains(val, "confluent_control_center"):
-			entity.Transformed = "c3"
-		case strings.Contains(val, "broker"):
-			entity.Transformed = "broker"
-		case strings.Contains(val, "auto_data_balancer"):
-			entity.Transformed = "adb"
-		case strings.Contains(val, "_jms_"):
-			entity.Transformed = "clients-jms"
-		case strings.Contains(val, "python_"):
-			entity.Transformed = "clients-python"
-		case strings.Contains(val, "client_net"):
-			entity.Transformed = "clients-dotNET"
-		case strings.Contains(val, "_c_"):
-			entity.Transformed = "clients-c/c++"
-		case strings.Contains(val, "_go_"):
-			entity.Transformed = "clients-golang"
-		case strings.Contains(val, "third-party"):
-			entity.Transformed = "clients-third-party"
-		case strings.Contains(val, "java_"):
-			entity.Transformed = "clients-java"
-		case strings.Contains(val, "java_"):
-			entity.Transformed = "clients-java"
-		default:
-			entity.Transformed = entity.Value.(string)
-		}
+func auditAccumulator(accumulator *[]models.Audit) func(interface{}) {
+	return func(dat interface{}) {
+		*accumulator = append(*dat.(*[]models.Audit), *accumulator...)
 	}
 }
 
-func transformPriority(obj interface{}) {
-	entity := obj.(*models.Custom_fields)
-	// TODO: Case Priority , build cache, pull from there
-	var priority int64 = 33471847
-	if entity.Id == priority && entity.Value != nil {
-		if len(entity.Value.(string)) >= 2 {
-			entity.Transformed = entity.Value.(string)[:2]
-		}
+func metricAccumulator(accumulator *[]models.TicketMetric) func(interface{}) {
+	return func(dat interface{}) {
+		*accumulator = append(*accumulator, *dat.(*models.TicketMetric))
 	}
 }
 
-// Capture/Index ticket fields for ease of use in processing
-func captureFieldList(obj interface{}) {
-	ticketFields[obj.(*models.Ticket_field).Title] = obj.(*models.Ticket_field).Id
+// Index ticket custom ticket fields
+func indexTicketFields(fields map[int64]string) func(interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		fields[obj.(models.TicketFields).Id] = obj.(models.TicketFields).Title
+		return obj
+	}
+
+}
+
+func indexOrganizationFields(fields map[string]int64) func(interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		fields[obj.(models.OrganizationFields).Title] = obj.(models.OrganizationFields).Id
+		return obj
+	}
+
+}
+
+func indexUserFields(fields map[string]int64) func(interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		fields[obj.(models.UserFields).Title] = obj.(models.UserFields).Id
+		return obj
+	}
+
 }
 
 //Capture ticket id for each ticket processed by the sink
-func buildMetricsList(obj interface{}) {
-	needsUpdate = append(needsUpdate, obj.(*models.Ticket).Id)
+func buildMetricsList(needsUpdate *[]int64) func(interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		*needsUpdate = append(*needsUpdate, obj.(models.Ticket).Id)
+		return obj
+	}
 }
 
-// Test custom query/post processing
-func PostProcessing() {
-	defer TimeTrack(time.Now(), "Ticket post processing")
-	//reset array
-	needsUpdate = nil
+//Capture custom ticket fields, put them in a table
+func persistTicketFieldValues(lookup map[int64]string, fields *[]models.TicketData) func(interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		record := obj.(models.Ticket)
+		for idx := range record.CustomFields {
+			record.CustomFields[idx].ObjectID = record.Id
+			record.CustomFields[idx].Title = lookup[record.CustomFields[idx].Id]
+		}
+		*fields = append(*fields, record.CustomFields...)
 
-	sink.ExecRaw(insertPriority)
-	sink.ExecRaw(insertComponent)
-	sink.ExecRaw(insertVersion)
-	sink.ExecRaw(insertRCA)
-	//sink.ExecRaw(insertSolved)
-	//sink.ExecRaw(insertTTFR)
+		return obj
+	}
 }
 
-func TestScheduled(t *testing.T) {
-	InitialLoad()
-	s := NewScheduler(8 * SECOND, Process)
+//Capture custom ticket fields, put them in a table
+func persistOrganizationFieldValues(lookup map[string]int64, fields *[]models.OrganizationData) func(interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		record := obj.(models.Organization)
 
-	go func() {
-		time.Sleep(10 * SECOND)
-		s.Stop()
-	}()
+		for k, v := range record.CustomFields {
+			tmp := models.OrganizationData{}
+			tmp.ObjectID  = record.Id
+			tmp.Id = lookup[k]
+			tmp.Title = k
+			tmp.Value = v
+			*fields = append(*fields, tmp)
+		}
 
-	s.Start()
-	return
+		return obj
+	}
 }
 
-func InitialLoad() {
-	sink.RegisterTransformation("ticket_fields", captureFieldList)
-	sink.RegisterTransformation("ticket_metadata", transformComponent)
-	sink.RegisterTransformation("ticket_metadata", transformPriority)
-	sink.RegisterTransformation("tickets", buildMetricsList)
+//Capture custom ticket fields, put them in a table
+func persistUserFieldValues(lookup map[string]int64, fields *[]models.UserData) func(interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		record := obj.(models.User)
 
-	source.ExportTicketFields(sink.ImportTicketFields)
-	source.ExportGroups(sink.ImportGroups)
+		for k, v := range record.CustomFields {
+			tmp := models.UserData{}
+			tmp.ObjectID  = record.Id
+			tmp.Id = lookup[k]
+			tmp.Title = k
+			tmp.Value = v
+			*fields = append(*fields, tmp)
+		}
+
+		return obj
+	}
 }
 
-func Process() {
-	start := sink.FetchState()
-
-	log.Printf("INFO: Fetching organization updates %v...\n", time.Unix(start["organization_export"], 0))
-	sink.CommitSequence("organization_export", source.ExportOrganizations(start["organization_export"], sink.ImportOrganizations))
-
-	log.Printf("INFO: Fetching User updates since %v...\n", time.Unix(start["user_export"], 0))
-	sink.CommitSequence("user_export", source.ExportUsers(start["user_export"], sink.ImportUsers))
-
-	log.Printf("INFO: Fetching ticket updates since %v...\n", time.Unix(start["ticket_export"], 0))
-	sink.CommitSequence("ticket_export", source.ExportTickets(start["ticket_export"], sink.ImportTickets))
-
-	var wg sync.WaitGroup
-	wg.Add(2)
-	log.Printf("INFO: Fetching ticket metric updates since ticket id %d...\n", start["ticket_export"])
-	go func(){
-		source.ExportTicketMetrics(needsUpdate, sink.ImportTicketMetrics)
-		wg.Done()
-	}()
-
-	log.Printf("INFO: Fetching ticket audits since audit id %d", start["ticket_audit"])
-	go func() {
-		source.ExportTicketAudits(needsUpdate, sink.ImportAudit)
-		wg.Done()
-	}()
-	wg.Wait()
-	PostProcessing()
+// skip non-time tracking events
+func filterAudits(lookup map[int64]string) func(interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Println("Recovered from panic processing ", obj)
+			}
+		}()
+		type Audit struct {
+			Id        int64 `structs:",isKey"`
+			Ticketid  int64 `structs:",isKey"`
+			Createdat models.Utime
+			Authorid  int64
+			Value     interface{}
+		}
+		e := obj.(models.Audit)
+		//Time tracker id, annoying it can't be picked out of zd with a name
+		for _, se := range e.Events {
+			fieldID, _ := strconv.ParseInt(se.FieldName, 10, 0)
+			if se.Type == "Change" && lookup[fieldID] == "Total time spent (sec)" {
+				return &Audit{e.Id, e.TicketId, e.CreatedAt, e.AuthorId, se.Value}
+			}
+		}
+		return nil
+	}
 }
 
-func init() {
-	cFile, err := os.Open("./exclude/conf.json")
-	maybeFatal(err)
+func TestDispatch(t *testing.T) {
+	var needsUpdate []int64
+	var MetricUpdates []models.TicketMetric
+	var AuditUpdates []models.Audit
+	var ticketFieldValues []models.TicketData
+	var OrganizationFieldValues []models.OrganizationData
+	var UserFieldValues []models.UserData
 
-	maybeFatal(json.NewDecoder(cFile).Decode(&conf))
+	ticketFields := make(map[int64]string)
+	OrganizationFields := make(map[string]int64)
+	UserFields := make(map[string]int64)
+
+	configuration.FromFile("./exclude/conf.json")(&conf)
+	//TODO: Add actual runner
+	//configuration.FromFile(os.Args[1])(&conf)
 
 	sink = mysql.Open(conf.DBconf)
-	source = zendesk.Open(http.DefaultClient, conf.ZDconf)
-}
+	source = zendesk.Open(conf.ZDconf, requestQueue)
 
-func maybeFatal(err error) {
-	if err != nil {
-		log.Fatal("Fatal:", err)
+	stop := zendesk.NewDispatcher(requestQueue)
+
+	sink.RegisterTransformation("TicketFields", indexTicketFields(ticketFields))
+	sink.RegisterTransformation("OrganizationFields", indexOrganizationFields(OrganizationFields))
+	sink.RegisterTransformation("Organization", persistOrganizationFieldValues(OrganizationFields, &OrganizationFieldValues))
+
+	sink.RegisterTransformation("UserFields", indexUserFields(UserFields))
+	sink.RegisterTransformation("User", persistUserFieldValues(UserFields, &UserFieldValues))
+
+	sink.RegisterTransformation("Ticket", buildMetricsList(&needsUpdate))
+	sink.RegisterTransformation("Ticket", persistTicketFieldValues(ticketFields, &ticketFieldValues))
+
+	sink.RegisterTransformation("Audit", filterAudits(ticketFields))
+
+	source.ExportTicketFields(sink.ImportTicketFields)
+	source.ExportOrganizationFields(sink.ImportOrganizationFields)
+	source.ExportUserFields(sink.ImportUserFields)
+
+	source.ExportGroups(sink.ImportGroups)
+	source.ExportOrganizations(sink.ImportOrganizations, sink.FetchOffset("organization"))
+	zendesk.WG.Wait()
+
+	//source.ExportUsers(sink.ImportUsers, sink.FetchOffset("user"))
+	zendesk.WG.Wait()
+
+	source.ExportTickets(sink.ImportTickets, sink.FetchOffset("ticket"))
+	zendesk.WG.Wait()
+
+	// Amortize the cost of prepared statements by batching individual requests
+	for _, i := range needsUpdate {
+		source.FetchAudits(i, auditAccumulator(&AuditUpdates))
+		source.FetchMetrics(i, metricAccumulator(&MetricUpdates))
+	}
+
+	// wait for audits and metrics to finish
+	zendesk.WG.Wait()
+
+	sink.ImportAudit(AuditUpdates)
+	sink.ImportTicketMetrics(MetricUpdates)
+	sink.ImportTicketCustomFields(ticketFieldValues)
+
+	// stop the dispatcher
+	stop <- struct{}{}
+
+	for err := source.Errors.Deque(); err != nil; err = source.Errors.Deque() {
+		log.Printf("WARN: An error occurred fetching %+v\n", err)
+	}
+
+	for err := sink.Errors.Deque(); err != nil; err = source.Errors.Deque() {
+		log.Printf("WARN: An error occurred persisting %+v\n", err)
 	}
 }

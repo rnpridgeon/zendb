@@ -1,4 +1,4 @@
-SET GLOBAL time_zone = '+00:00';
+SET GLOBAL TIME_ZONE  = '+00:00';
 
 CREATE DATABASE IF NOT EXISTS zendb
     CHARACTER SET utf8mb4
@@ -8,169 +8,212 @@ GRANT ALL PRIVILEGES ON zendb.* TO 'zendb'@'%' IDENTIFIED BY 'password';
 
 USE zendb;
 
-CREATE TABLE IF NOT EXISTS sequence_table (
-	sequence_name       VARCHAR(20) UNIQUE KEY NOT NULL,
-	last_val            BIGINT UNSIGNED NOT NULL DEFAULT 0,
-	PRIMARY KEY (`sequence_name`)
+CREATE TABLE IF NOT EXISTS sequencetable (
+	sequencename       VARCHAR(20) UNIQUE KEY NOT NULL,
+	lastval            BIGINT UNSIGNED NOT NULL DEFAULT 0,
+	PRIMARY KEY (`sequencename`)
 );
 
-CREATE TABLE IF NOT EXISTS organization_fields (
+CREATE TABLE IF NOT EXISTS organizationfields (
 	id			    BIGINT UNSIGNED UNIQUE KEY NOT NULL,
-	sid			    VARCHAR(255) UNIQUE NOT NULL,
-	title		    VARCHAR(30) NOT NULL,
-	created_at	INT UNSIGNED NOT NULL, 
-	updated_at	INT UNSIGNED NOT NULL,
+	type					VARCHAR(255) NOT NULL,
+	skey				VARCHAR(255) DEFAULT "UNDEFINED",
+	title			    VARCHAR(255) NOT NULL,
+	createdat	BIGINT DEFAULT -1,
+	updatedat	BIGINT DEFAULT -1,
 	PRIMARY KEY(`id`)
 );
 
-CREATE TABLE IF NOT EXISTS user_fields (
+CREATE TABLE IF NOT EXISTS userfields (
 	id			    BIGINT UNSIGNED UNIQUE KEY NOT NULL,
-	sid			    VARCHAR(255) UNIQUE NOT NULL,
-	title		    VARCHAR(30) NOT NULL,
-	created_at	INT UNSIGNED NOT NULL, 
-	updated_at	INT	UNSIGNED NOT NULL, 
+	type					VARCHAR(255) NOT NULL,
+	skey				VARCHAR(255) DEFAULT "UNDEFINED",
+	title			    VARCHAR(255) NOT NULL,
+	createdat	BIGINT DEFAULT -1,
+	updatedat	BIGINT DEFAULT -1,
 	PRIMARY KEY(`id`)	
 );
 
-CREATE TABLE IF NOT EXISTS ticket_fields (
-	id					BIGINT UNSIGNED UNIQUE KEY NOT NULL, 
-	title				VARCHAR(30) NOT NULL,
-	PRIMARY KEY (`id`)
+CREATE TABLE IF NOT EXISTS ticketfields (
+	id			    BIGINT UNSIGNED UNIQUE KEY NOT NULL,
+	type					VARCHAR(255) NOT NULL,
+	skey				VARCHAR(255) DEFAULT "UNDEFINED",
+	title			    VARCHAR(255) NOT NULL,
+	createdat	BIGINT DEFAULT -1,
+	updatedat	BIGINT DEFAULT -1,
+	PRIMARY KEY(`id`)
 );
 
 /* TODO: There are more metrics I want to extract, this will have to suffice for the first iteration */
-CREATE TABLE IF NOT EXISTS ticket_metrics (
-  id         BIGINT UNSIGNED UNIQUE KEY NOT NULL,
-  created_at BIGINT UNSIGNED,
-  updated_at BIGINT UNSIGNED,
-  ticket_id	 BIGINT UNSIGNED NOT NULL,
-  replies		 BIGINT UNSIGNED,
-	ttfr			 BIGINT	UNSIGNED,
-  solved_at	 BIGINT UNSIGNED DEFAULT 0,
+CREATE TABLE IF NOT EXISTS ticketmetric (
+  id         BIGINT UNSIGNED NOT NULL,
+	ticketid BIGINT UNSIGNED NOT NULL,
+	createdat 	BIGINT DEFAULT -1,
+  updatedat 	BIGINT DEFAULT -1,
+	solvedat	 BIGINT  DEFAULT -1,
+	assignedat BIGINT DEFAULT -1,
+	initiallyassignedat BIGINT DEFAULT -1,
+	latestcommentaddedat BIGINT DEFAULT -1,
+	assigneeUpdatedat BIGINT DEFAULT -1,
+	requesterupdatedat BIGINT DEFAULT -1,
+	statusupdatedat BIGINT DEFAULT -1,
+	agentwaittime BIGINT DEFAULT -1,
+	requesterwaittime BIGINT DEFAULT -1,
+	reopens		 BIGINT UNSIGNED DEFAULT 0,
+  replies		 BIGINT UNSIGNED DEFAULT 0,
+	ttfr			 BIGINT UNSIGNED	DEFAULT 0,
+	ttr				 BIGINT UNSIGNED DEFAULT 0,
   PRIMARY KEY(`id`)
+# 	FOREIGN KEY (`ticketid`)
+# 		REFERENCES ticket(`id`)
+	# TODO: figure out why this isn't working
 );
 
 CREATE TABLE IF NOT EXISTS groups (
 	id          BIGINT UNSIGNED UNIQUE KEY NOT NULL,
-	name        VARCHAR(50) NOT NULL,
-	created_at  INT UNSIGNED NOT NULL,
-	updated_at  INT	UNSIGNED NOT NULL,
+	name        VARCHAR(50) DEFAULT "UNDEFINED",
+	createdat  BIGINT DEFAULT -1,
+	updatedat  BIGINT	DEFAULT -1,
 	PRIMARY KEY(`id`)
 );
 
-/* group id is not mandatory for organizations */
-INSERT INTO groups VALUES (0, "UNDEFINED", 0, 0);
+/* group id is not mandatory for organization */
+INSERT INTO groups(id) VALUES (0);
 
-CREATE TABLE IF NOT EXISTS organizations (
+CREATE TABLE IF NOT EXISTS organization (
 	id          BIGINT	UNSIGNED UNIQUE KEY	NOT NULL,
-	name        VARCHAR(255) NOT NULL,
-	created_at   INT UNSIGNED NOT NULL,
-	updated_at  INT	UNSIGNED NOT NULL,
-	group_id	  BIGINT UNSIGNED NOT NULL,
+	externalID	VARCHAR(255) DEFAULT "UNDEFINED",
+	name        VARCHAR(255) DEFAULT "UNDEFINED",
+	createdat   BIGINT DEFAULT -1,
+	updatedat  BIGINT DEFAULT -1,
+	groupid	  BIGINT UNSIGNED NOT NULL,
     PRIMARY KEY (`id`),
-	FOREIGN KEY (`group_id`)
-		REFERENCES groups(`id`)
-);
-
-/* some users do not have an organization id despite having an org mapping */
-INSERT INTO organizations VALUES( 0, "UNDEFINED", 0, 0, 0);
-
-CREATE TABLE IF NOT EXISTS users (
-	id                BIGINT UNSIGNED UNIQUE KEY NOT NULL,
-	email	            VARCHAR(255) NOT NULL,
-	name              VARCHAR(255) NOT NULL,
-	created_at	  		INT UNSIGNED NOT NULL,
-	organization_id		BIGINT UNSIGNED DEFAULT 0,
-	default_group_id	BIGINT UNSIGNED NOT NULL, 
-	role				      VARCHAR(10)	NOT NULL,
-	time_zone			    VARCHAR(30)	NOT NULL,
-	updated_at			  INT UNSIGNED NOT NULL,
-	PRIMARY KEY (`id`),
-	FOREIGN KEY (`organization_id`) 
-		REFERENCES organizations(`id`),
-	FOREIGN KEY (`default_group_id`)
-		REFERENCES groups(`id`)
-);
-
-CREATE TABLE IF NOT EXISTS tickets (
-	id				  		BIGINT UNSIGNED UNIQUE KEY NOT NULL,
-	subject	        VARCHAR(255) NOT NULL,
-	status          VARCHAR(10) NOT NULL,
-	requester_id		BIGINT UNSIGNED NOT NULL,
-	submitter_id		BIGINT UNSIGNED NOT NULL,
-	assignee_id     BIGINT UNSIGNED NOT NULL,
-	organization_id BIGINT UNSIGNED DEFAULT 0,
-	group_id        BIGINT UNSIGNED NOT NULL,
-	created_at      INT UNSIGNED NOT NULL,
-	updated_at      INT UNSIGNED NOT NULL,
-	cause						VARCHAR(55) DEFAULT '-',
-	version		    	VARCHAR(55) DEFAULT '-',
-  component       VARCHAR(55) DEFAULT '-',
-  priority        VARCHAR(10) DEFAULT 'undefined',
-	ttfr						BIGINT UNSIGNED,
-	solved_at       BIGINT UNSIGNED DEFAULT 0,
- 	PRIMARY KEY (`id`),
-	FOREIGN KEY (`requester_id`)
-		REFERENCES users(`id`),
-	FOREIGN KEY (`submitter_id`)
-		REFERENCES users(`id`),
-	FOREIGN KEY (`assignee_id`)
-		REFERENCES users(`id`),
-	FOREIGN KEY (`organization_id`)
-		REFERENCES organizations(`id`),
-	FOREIGN KEY (`group_id`)
+	FOREIGN KEY (`groupid`)
 		REFERENCES groups(`id`)
 );
 
 /* holding place for flattening custom fields */
-CREATE TABLE IF NOT EXISTS ticket_metadata (
-	ticket_id BIGINT UNSIGNED NOT NULL,
-	field_id  BIGINT  UNSIGNED NOT NULL,
-	raw_value     VARCHAR(255),
-	transformed_value VARCHAR(255),
-	PRIMARY KEY (`ticket_id`, `field_id`),
-	FOREIGN KEY (`field_id`)
-		REFERENCES ticket_fields(`id`)
+CREATE TABLE IF NOT EXISTS organizationdata (
+	objectid BIGINT UNSIGNED NOT NULL,
+	id  BIGINT UNSIGNED NOT NULL,
+	title  VARCHAR(255),
+	value     VARCHAR(255),
+	transformed VARCHAR(255),
+	PRIMARY KEY (`objectid`, `id`)
 );
 
-/* This only considers change evnets and their current value */
-CREATE TABLE IF NOT EXISTS ticket_audits (
-	ticket_id BIGINT UNSIGNED NOT NULL,
-	author_id BIGINT UNSIGNED NOT NULL,
+/* some user do not have an organization id despite having an org mapping */
+INSERT INTO organization (id, groupid) VALUES(0, 0);
+
+CREATE TABLE IF NOT EXISTS user (
+	id                BIGINT UNSIGNED UNIQUE KEY NOT NULL,
+	externalid				VARCHAR(255) DEFAULT "UNDEFINED",
+	email	            VARCHAR(255) DEFAULT "UNDEFINED",
+	name              VARCHAR(255) DEFAULT "UNDEFINED",
+	createdat	  		BIGINT DEFAULT -1,
+	updatedat			  BIGINT DEFAULT -1,
+	lastloginat			BIGINT DEFAULT -1,
+	organizationid		BIGINT UNSIGNED DEFAULT 0,
+	groupid						BIGINT UNSIGNED DEFAULT 0,
+	role				      VARCHAR(255) DEFAULT "UNDEFINED",
+	suspended					BOOL DEFAULT TRUE,
+	timezone			    VARCHAR(255) DEFAULT "UNDEFINED",
+	PRIMARY KEY (`id`),
+	FOREIGN KEY (`organizationid`) 
+		REFERENCES organization(`id`),
+	FOREIGN KEY (`groupid`)
+		REFERENCES groups(`id`)
+);
+
+/* holding place for flattening custom fields */
+CREATE TABLE IF NOT EXISTS userdata (
+	objectid BIGINT UNSIGNED NOT NULL,
+	id  BIGINT UNSIGNED NOT NULL,
+	title  VARCHAR(255),
+	value     VARCHAR(255),
+	transformed VARCHAR(255),
+	PRIMARY KEY (`objectid`, `id`)
+);
+
+INSERT INTO user (id) VALUES(0);
+
+/* A lot of defaults to accomadate deleted stuff kind of breaks referential integrity */
+CREATE TABLE IF NOT EXISTS ticket (
+	id				  		BIGINT UNSIGNED NOT NULL,
+	externalid			VARCHAR(255) DEFAULT "UNDEFINED",
+	subject	        VARCHAR(255) NOT NULL,
+	status          VARCHAR(10) NOT NULL,
+	requesterid		BIGINT UNSIGNED DEFAULT 0,
+	submitterid		BIGINT UNSIGNED DEFAULT 0,
+	assigneeid     BIGINT UNSIGNED DEFAULT 0,
+	recipient			VARCHAR(255) DEFAULT "UNDEFINED",
+	organizationid BIGINT UNSIGNED DEFAULT 0,
+	groupid        BIGINT UNSIGNED DEFAULT 0,
+	createdat      BIGINT DEFAULT -1,
+	updatedat      BIGINT DEFAULT -1,
+ 	PRIMARY KEY (`id`),
+	FOREIGN KEY (`requesterid`)
+		REFERENCES user(`id`),
+	FOREIGN KEY (`submitterid`)
+		REFERENCES user(`id`),
+	FOREIGN KEY (`assigneeid`)
+		REFERENCES user(`id`),
+	FOREIGN KEY (`organizationid`)
+		REFERENCES organization(`id`),
+	FOREIGN KEY (`groupid`)
+		REFERENCES groups(`id`)
+);
+
+/* holding place for flattening custom fields */
+CREATE TABLE IF NOT EXISTS ticketdata (
+	objectid BIGINT UNSIGNED NOT NULL,
+	id  BIGINT UNSIGNED NOT NULL,
+	title  VARCHAR(255),
+	value     VARCHAR(255),
+	transformed VARCHAR(255),
+	PRIMARY KEY (`objectid`, `id`)
+);
+
+/* This only considers change events and their current value */
+CREATE TABLE IF NOT EXISTS audit (
+	id	BIGINT UNSIGNED UNIQUE,
+	ticketid BIGINT UNSIGNED NOT NULL,
+	createdat BIGINT DEFAULT -1,
+	authorid BIGINT UNSIGNED NOT NULL,
 	value     BIGINT UNSIGNED,
-	PRIMARY KEY (`ticket_id`),
-	FOREIGN KEY (`ticket_id`)
-		REFERENCES tickets(`id`),
-	FOREIGN KEY (`author_id`)
-	REFERENCES users(`id`)
+	PRIMARY KEY (`id`, `ticketid`),
+	FOREIGN KEY (`ticketid`)
+		REFERENCES ticket(`id`),
+	FOREIGN KEY (`authorid`)
+	REFERENCES user(`id`)
 );
 
 /* convenience table */
-CREATE VIEW ticket_view AS SELECT tickets.id, tickets.priority, organizations.name AS organization, users.name AS requester,
-                             tickets.status, tickets.component, tickets.version, FROM_UNIXTIME(tickets.created_at) AS created_at,
-														 FROM_UNIXTIME(tickets.updated_at) AS updated_at, ticket_metrics.ttfr,
-														 FROM_UNIXTIME(ticket_metrics.solved_at) AS solved_at
-                           FROM tickets
-                              JOIN organizations ON tickets.organization_id = organizations.id
-                              JOIN users ON tickets.requester_id = users.id
-															JOIN ticket_metrics on tickets.id = ticket_metrics.ticket_id;
-
+# CREATE VIEW ticketview AS SELECT ticket.id, ticket.priority, organization.name AS organization, user.name AS requester,
+#                              ticket.status, ticket.component, ticket.version, FROM_UNIXTIME(ticket.createdat) AS createdat,
+# 														 FROM_UNIXTIME(ticket.updatedat) AS updatedat, ticketmetric.ttfr,
+# 														 FROM_UNIXTIME(ticketmetric.solvedat) AS solvedat
+#                            FROM ticket
+#                               JOIN organization ON ticket.organizationid = organization.id
+#                               JOIN user ON ticket.requesterid = user.id
+# 															JOIN ticketmetric on ticket.id = ticketmetric.ticketid;
+#
 
 /* Ensure last id always increments */
 DELIMITER //
-CREATE TRIGGER increment_only BEFORE UPDATE ON zendb.sequence_table FOR EACH ROW
+CREATE TRIGGER incrementonly BEFORE UPDATE ON zendb.sequencetable FOR EACH ROW
   BEGIN
-    IF OLD.last_val > NEW.last_val THEN
-      SET NEW.last_val = OLD.last_val;
+    IF OLD.lastval > NEW.lastval THEN
+      SET NEW.lastval = OLD.lastval;
     ELSE
-      SET NEW.last_val = NEW.last_val + 1;
+      SET NEW.lastval = NEW.lastval + 1;
     END IF;
   END
 //
 
 /* Ensure time tracking value always increments */
 DELIMITER //
-CREATE TRIGGER increment_audit BEFORE UPDATE ON zendb.ticket_audits FOR EACH ROW
+CREATE TRIGGER incrementaudit BEFORE UPDATE ON zendb.audit FOR EACH ROW
 	BEGIN
 		IF OLD.value > NEW.value THEN
 			SET NEW.value = OLD.value;
