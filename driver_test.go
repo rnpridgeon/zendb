@@ -190,7 +190,7 @@ func TestDispatch(t *testing.T) {
 	source.ExportOrganizations(sink.ImportOrganizations, sink.FetchOffset("organization"))
 	zendesk.WG.Wait()
 
-	//source.ExportUsers(sink.ImportUsers, sink.FetchOffset("user"))
+	source.ExportUsers(sink.ImportUsers, sink.FetchOffset("user"))
 	zendesk.WG.Wait()
 
 	source.ExportTickets(sink.ImportTickets, sink.FetchOffset("ticket"))
