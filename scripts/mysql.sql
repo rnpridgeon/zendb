@@ -97,8 +97,8 @@ CREATE TABLE IF NOT EXISTS organizationdata (
 	objectid BIGINT UNSIGNED NOT NULL,
 	id  BIGINT UNSIGNED NOT NULL,
 	title  VARCHAR(255),
-	value     VARCHAR(255),
-	transformed VARCHAR(255),
+	value     VARCHAR(1024),
+	transformed VARCHAR(1024),
 	PRIMARY KEY (`objectid`, `id`)
 );
 

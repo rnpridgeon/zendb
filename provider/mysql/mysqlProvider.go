@@ -15,7 +15,6 @@ import (
 	"github.com/rnpridgeon/structs"
 	"github.com/rnpridgeon/utils"
 	"github.com/rnpridgeon/utils/collections"
-	"github.com/rnpridgeon/zendb/models"
 )
 
 const (
@@ -71,7 +70,7 @@ func (p *MysqlProvider) RegisterTransformation(target string, fn func(interface{
 }
 
 func (p *MysqlProvider) FetchOffset(resource string) (offset int64) {
-	p.dbClient.QueryRow("select ifnull(max(updatedat),0) from ? ", resource).Scan(&offset)
+	p.dbClient.QueryRow("select ifnull(max(updatedat),0) from " + resource).Scan(&offset)
 	log.Printf("INFO: retrieved offset %d for %s\n", offset, resource)
 	return offset
 }
@@ -81,31 +80,6 @@ func (p *MysqlProvider) ExecRaw(qry string) int64 {
 	results, _ := p.dbClient.Exec(qry)
 	ret, _ := results.RowsAffected()
 	return ret
-}
-
-func (p *MysqlProvider) ExportOrganizations(since int64) (entities []models.Organization) {
-	defer utils.TimeTrack(time.Now(), "Organization export")
-
-	var count int
-	p.dbClient.QueryRow(fmt.Sprintf(sizeOf, ORGANIZATIONS, since)).Scan(&count)
-	entities = make([]models.Organization, count, count)
-
-	rows, err := p.dbClient.Query(fmt.Sprintf(fetchOrganizations, since))
-	defer rows.Close()
-
-	if err != nil {
-		log.Fatal("SQLException: failed to fetch from %s: %s", ORGANIZATIONS, err)
-	}
-
-	index := 0
-	for rows.Next() {
-		rows.Scan(&entities[index].Id, &entities[index].Name, &entities[index].CreatedAt,
-			&entities[index].UpdatedAt, &entities[index].GroupId)
-
-		index++
-	}
-	// Trim fat
-	return entities[:index]
 }
 
 func (p *MysqlProvider) processUpdate(tx *sql.Tx, entity interface{}) {
@@ -236,6 +210,11 @@ func (p *MysqlProvider) ImportTicketFields(entities interface{}) {
 	p.processImport(entities)
 }
 
+func (p *MysqlProvider) ImportTicketCustomFields(entities interface{}) {
+	defer utils.TimeTrack(time.Now(), "Ticket Custom Field import")
+	p.processImport(entities)
+}
+
 func (p *MysqlProvider) ImportGroups(entities interface{}) {
 	defer utils.TimeTrack(time.Now(), "Group import")
 	p.processImport(entities)
@@ -251,6 +230,11 @@ func (p *MysqlProvider) ImportOrganizationFields(entities interface{}) {
 	p.processImport(entities)
 }
 
+func (p *MysqlProvider) ImportOrganizationCustomFields(entities interface{}) {
+	defer utils.TimeTrack(time.Now(), "Organization Custom Field import")
+	p.processImport(entities)
+}
+
 func (p *MysqlProvider) ImportUsers(entities interface{}) {
 	defer utils.TimeTrack(time.Now(), "User import")
 	p.processImport(entities)
@@ -258,6 +242,11 @@ func (p *MysqlProvider) ImportUsers(entities interface{}) {
 
 func (p *MysqlProvider) ImportUserFields(entities interface{}) {
 	defer utils.TimeTrack(time.Now(), "User Fields import")
+	p.processImport(entities)
+}
+
+func (p *MysqlProvider) ImportUserCustomFields(entities interface{}) {
+	defer utils.TimeTrack(time.Now(), "User Custom Field import")
 	p.processImport(entities)
 }
 
@@ -274,37 +263,4 @@ func (p *MysqlProvider) ImportTicketMetrics(entities interface{}) {
 func (p *MysqlProvider) ImportAudit(entities interface{}) {
 	defer utils.TimeTrack(time.Now(), "Ticket Audit import")
 	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportTicketCustomFields(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Ticket Custom Field import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ExportTickets(since int64, orgID int64) (entities []models.TicketEnhanced) {
-	defer utils.TimeTrack(time.Now(), "Ticket export")
-
-	qry := fmt.Sprintf(fetchTickets, since)
-
-	var last int
-	p.dbClient.QueryRow(fmt.Sprintf(sizeOf, TICKETS, since)).Scan(&last)
-	entities = make([]models.TicketEnhanced, last, last)
-	rows, err := p.dbClient.Query(qry)
-	defer rows.Close()
-
-	if err != nil {
-		log.Fatal("SQLException: failed to fetch from %s: %s", TICKETS, err)
-	}
-
-	last = 0
-	index := 0
-	for rows.Next() {
-		rows.Scan(&entities[index].Id, &entities[index].Subject, &entities[index].Status, &entities[index].RequesterId, &entities[index].SubmitterId, &entities[index].AssigneeId,
-			&entities[index].OrganizationId, &entities[index].GroupId, entities[index].CreatedAt, entities[index].UpdatedAt, &entities[index].Version, &entities[index].Component,
-			&entities[index].Priority, &entities[index].TTFR, entities[index].Solved_at)
-
-		index++
-	}
-	return entities[:index]
-
 }

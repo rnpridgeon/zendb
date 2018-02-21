@@ -21,10 +21,14 @@ func resourceFactory(resource string) (ret interface{}) {
 		return &[]models.Organization{}
 	case "organization":
 		return &models.Organization{}
+	case "organization_fields":
+		return &[]models.OrganizationFields{}
 	case "users":
 		return &[]models.User{}
 	case "user":
 		return &models.User{}
+	case "user_fields":
+		return &[]models.UserFields{}
 	case "tickets":
 		return &[]models.Ticket{}
 	case "ticket":
@@ -116,7 +120,7 @@ func (t *Task) Process(requestQueue chan *Task) {
 		t.onSuccess(resource)
 	} else {
 		t.errors.Enqueue(t)
-		log.Printf("ERROR: Failed to deserialized payload %v \n", err)
+		log.Printf("ERROR: Failed to deserialized payload %v \n", string(rd.Payload))
 	}
 
 	fasthttp.ReleaseResponse(resp)

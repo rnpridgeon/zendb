@@ -1,11 +1,9 @@
-package zendb
+package main
 
 import (
-	//"os"
-	"fmt"
+	"os"
 	"log"
 	"strconv"
-	"testing"
 
 	"github.com/rnpridgeon/utils/configuration"
 	"github.com/rnpridgeon/zendb/models"
@@ -50,7 +48,7 @@ func indexTicketFields(fields map[int64]string) func(interface{}) interface{} {
 
 func indexOrganizationFields(fields map[string]int64) func(interface{}) interface{} {
 	return func(obj interface{}) interface{} {
-		fields[obj.(models.OrganizationFields).Title] = obj.(models.OrganizationFields).Id
+		fields[obj.(models.OrganizationFields).SKey] = obj.(models.OrganizationFields).Id
 		return obj
 	}
 
@@ -58,7 +56,7 @@ func indexOrganizationFields(fields map[string]int64) func(interface{}) interfac
 
 func indexUserFields(fields map[string]int64) func(interface{}) interface{} {
 	return func(obj interface{}) interface{} {
-		fields[obj.(models.UserFields).Title] = obj.(models.UserFields).Id
+		fields[obj.(models.UserFields).SKey] = obj.(models.UserFields).Id
 		return obj
 	}
 
@@ -92,12 +90,12 @@ func persistOrganizationFieldValues(lookup map[string]int64, fields *[]models.Or
 		record := obj.(models.Organization)
 
 		for k, v := range record.CustomFields {
-			tmp := models.OrganizationData{}
+			tmp := new(models.OrganizationData)
 			tmp.ObjectID  = record.Id
 			tmp.Id = lookup[k]
 			tmp.Title = k
 			tmp.Value = v
-			*fields = append(*fields, tmp)
+			*fields = append(*fields, *tmp)
 		}
 
 		return obj
@@ -125,11 +123,11 @@ func persistUserFieldValues(lookup map[string]int64, fields *[]models.UserData) 
 // skip non-time tracking events
 func filterAudits(lookup map[int64]string) func(interface{}) interface{} {
 	return func(obj interface{}) interface{} {
-		defer func() {
-			if r := recover(); r != nil {
-				fmt.Println("Recovered from panic processing ", obj)
-			}
-		}()
+		//defer func() {
+		//	if r := recover(); r != nil {
+		//		fmt.Println("Recovered from panic processing ", obj)
+		//	}
+		//}()
 		type Audit struct {
 			Id        int64 `structs:",isKey"`
 			Ticketid  int64 `structs:",isKey"`
@@ -149,7 +147,8 @@ func filterAudits(lookup map[int64]string) func(interface{}) interface{} {
 	}
 }
 
-func TestDispatch(t *testing.T) {
+//func TestDispatch(t *testing.T) {
+func main() {
 	var needsUpdate []int64
 	var MetricUpdates []models.TicketMetric
 	var AuditUpdates []models.Audit
@@ -161,9 +160,13 @@ func TestDispatch(t *testing.T) {
 	OrganizationFields := make(map[string]int64)
 	UserFields := make(map[string]int64)
 
-	configuration.FromFile("./exclude/conf.json")(&conf)
-	//TODO: Add actual runner
-	//configuration.FromFile(os.Args[1])(&conf)
+	//configuration.FromFile("./exclude/conf.json")(&conf)
+
+	if len(os.Args) != 2 {
+		log.Fatalf("USAGE ./%s [path to config file]\n", os.Args[0])
+	}
+
+	configuration.FromFile(os.Args[1])(&conf)
 
 	sink = mysql.Open(conf.DBconf)
 	source = zendesk.Open(conf.ZDconf, requestQueue)
@@ -205,9 +208,12 @@ func TestDispatch(t *testing.T) {
 	// wait for audits and metrics to finish
 	zendesk.WG.Wait()
 
+	sink.ImportOrganizationCustomFields(OrganizationFieldValues)
+	sink.ImportUserCustomFields(UserFieldValues)
+	sink.ImportTicketCustomFields(ticketFieldValues)
 	sink.ImportAudit(AuditUpdates)
 	sink.ImportTicketMetrics(MetricUpdates)
-	sink.ImportTicketCustomFields(ticketFieldValues)
+
 
 	// stop the dispatcher
 	stop <- struct{}{}
