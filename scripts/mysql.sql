@@ -137,7 +137,6 @@ CREATE TABLE IF NOT EXISTS userdata (
 
 INSERT INTO user (id) VALUES(0);
 
-/* A lot of defaults to accomadate deleted stuff kind of breaks referential integrity */
 CREATE TABLE IF NOT EXISTS ticket (
 	id				  		BIGINT UNSIGNED NOT NULL,
 	externalid			VARCHAR(255) DEFAULT "UNDEFINED",
@@ -180,7 +179,6 @@ CREATE TABLE IF NOT EXISTS audit (
 	ticketid BIGINT UNSIGNED NOT NULL,
 	createdat BIGINT DEFAULT -1,
 	authorid BIGINT UNSIGNED NOT NULL,
-	value     BIGINT UNSIGNED,
 	PRIMARY KEY (`id`, `ticketid`),
 	FOREIGN KEY (`ticketid`)
 		REFERENCES ticket(`id`),
@@ -188,7 +186,78 @@ CREATE TABLE IF NOT EXISTS audit (
 	REFERENCES user(`id`)
 );
 
-/* convenience table */
+CREATE TABLE IF NOT EXISTS changeevent (
+	id        BIGINT UNSIGNED UNIQUE,
+	auditid   BIGINT UNSIGNED NOT NULL,
+	type 			VARCHAR(255),
+	fieldname VARCHAR(255),
+	value			BIGINT DEFAULT -1,
+	pvalue		BIGINT DEFAULT -1,
+	PRIMARY KEY (`id`, `auditid`),
+	FOREIGN KEY (`auditid`)
+		REFERENCES audit(`id`)
+);
+
+CREATE TABLE IF NOT EXISTS satisfactionrating (
+  id          BIGINT UNSIGNED UNIQUE,
+  assigneeid  BIGINT UNSIGNED NOT NULL,
+  groupid     BIGINT UNSIGNED NOT NULL,
+  requesterid BIGINT UNSIGNED NOT NULL,
+  ticketid    BIGINT UNSIGNED NOT NULL,
+  score       VARCHAR(255) ,
+  createdat   BIGINT DEFAULT -1,
+  updatedat   BIGINT DEFAULT -1,
+  reason     VARCHAR(1024),
+  PRIMARY KEY( `id`, `ticketid`),
+  FOREIGN KEY (`ticketid`)
+    REFERENCES ticket(`id`),
+  FOREIGN KEY (`requesterid`)
+    REFERENCES user(`id`),
+  FOREIGN KEY (`assigneeid`)
+    REFERENCES user(`id`),
+  FOREIGN KEY (`groupid`)
+  REFERENCES groups(`id`)
+);
+
+/* For public consumption */
+CREATE VIEW TimeSpent AS SELECT ticket.id, max(changeevent.value) AS value
+  FROM ticket JOIN audit ON ticket.id = audit.ticketid
+    JOIN changeevent ON changeevent.auditid = audit.id
+  GROUP BY ticket.id ORDER BY ticket.id;
+
+CREATE VIEW TicketPriority AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS priority
+                              FROM ticketdata WHERE title = 'Case Priority' ORDER BY objectID;
+
+CREATE VIEW TicketComponent AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS component
+                              FROM ticketdata WHERE title = 'Component' ORDER BY objectID;
+
+CREATE VIEW TicketTime AS SELECT TimeSpent.id AS ticketid, TimeSpent.value AS tickettime
+                               FROM TimeSpent ORDER BY TimeSpent.id;
+
+CREATE VIEW TicketCause AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS cause
+                          FROM ticketdata WHERE title = 'Root Cause' ORDER BY objectID;
+
+CREATE VIEW TicketVersion AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS version
+                           FROM ticketdata WHERE title = 'Confluent/Kafka Version' ORDER BY objectID;
+
+CREATE VIEW BundleUsage AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS bundleused
+                           FROM ticketdata WHERE title = 'Support Bundle Used' ORDER BY objectID;
+
+CREATE VIEW TicketView AS
+  SELECT ticket.*, TicketPriority.priority, TicketComponent.component, TicketTime.ticketTime, TicketCause.cause,
+    TicketVersion.version, BundleUsage.bundleused, ticketmetric.ttfr, ticketmetric.ttr, ticketmetric.solvedat,
+    ticketmetric.agentwaittime,ticketmetric.requesterwaittime
+FROM ticket
+  JOIN ticketmetric ON ticket.id = ticketmetric.ticketid
+  JOIN TicketPriority ON ticket.id = TicketPriority.ticketid
+  JOIN TicketComponent ON ticket.id = TicketComponent.ticketid
+  JOIN TicketTime ON ticket.id = TicketTime.ticketid
+  JOIN TicketCause ON ticket.id = TicketCause.ticketid
+  JOIN TicketVersion ON ticket.id = TicketVersion.ticketid
+  JOIN BundleUsage ON ticket.id = BundleUsage.ticketid
+ORDER BY ticket.id;
+
+
 # CREATE VIEW ticketview AS SELECT ticket.id, ticket.priority, organization.name AS organization, user.name AS requester,
 #                              ticket.status, ticket.component, ticket.version, FROM_UNIXTIME(ticket.createdat) AS createdat,
 # 														 FROM_UNIXTIME(ticket.updatedat) AS updatedat, ticketmetric.ttfr,
@@ -198,27 +267,3 @@ CREATE TABLE IF NOT EXISTS audit (
 #                               JOIN user ON ticket.requesterid = user.id
 # 															JOIN ticketmetric on ticket.id = ticketmetric.ticketid;
 #
-
-/* Ensure last id always increments */
-DELIMITER //
-CREATE TRIGGER incrementonly BEFORE UPDATE ON zendb.sequencetable FOR EACH ROW
-  BEGIN
-    IF OLD.lastval > NEW.lastval THEN
-      SET NEW.lastval = OLD.lastval;
-    ELSE
-      SET NEW.lastval = NEW.lastval + 1;
-    END IF;
-  END
-//
-
-/* Ensure time tracking value always increments */
-DELIMITER //
-CREATE TRIGGER incrementaudit BEFORE UPDATE ON zendb.audit FOR EACH ROW
-	BEGIN
-		IF OLD.value > NEW.value THEN
-			SET NEW.value = OLD.value;
-		ELSE
-			SET NEW.value = NEW.value + 1;
-		END IF;
-	END
-//

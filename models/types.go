@@ -74,7 +74,6 @@ type Ticket struct {
 	OrganizationId     int64              `json:"organization_id,omitempty"`
 	GroupId            int64              `json:"group_id,omitempty"`
 	CustomFields       []TicketData       `json:"custom_fields,omitempty" structs:"-"`
-	SatisfactionRating SatisfactionRating `json:"satisfaction_rating,omitempty"  structs:"-"`
 	CreatedAt          Utime              `json:"created_at,omitempty"`
 	UpdatedAt          Utime              `json:"updated_at,omitempty"`
 }
@@ -130,18 +129,7 @@ type Audit struct {
 	TicketId  int64         `json:"ticket_id,omitempty" structs:",isKey"`
 	CreatedAt Utime         `json:"created_at,omitempty"`
 	AuthorId  int64         `json:"author_id,omitempty"`
-	Events    []ChangeEvent `json:"events,omitempty" structs:"value"`
-}
-
-// Doc: https://developer.zendesk.com/rest_api/docs/core/ticket_audits#audit-events
-// Parent: audit
-// Notes: resource : Data; Currently only `Create` and `Change` events are supported, this Union represents both
-// event - change metadata
-type Event struct {
-	Id        int64       `json:"id,omitempty"`
-	Type      string      `json:"type,omitempty"`
-	FieldName string      `json:"field_name,omitempty"`
-	Value     interface{} `json:"value,omitempty"`
+	Events    []ChangeEvent `json:"events,omitempty" structs:"-"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/ticket_audits#audit-events
@@ -149,8 +137,12 @@ type Event struct {
 // Notes: resource type: Data; Currently only `Create` and `Change` events are supported, this Union represents both
 // event - change metadata
 type ChangeEvent struct {
-	Event
-	PValue interface{} `json:"previous_value,omitempty"`
+	Id        int64       `json:"id,omitempty" structs:",isKey"`
+	AuditId	  int64		  `json:"-,omitempty" strcuts:",isKey"`
+	Type      string      `json:"type,omitempty"`
+	FieldName string      `json:"field_name,omitempty"`
+	Value     interface{} `json:"value,omitempty"`
+	PValue 	  interface{} `json:"previous_value,omitempty"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/satisfaction_ratings
@@ -159,7 +151,6 @@ type ChangeEvent struct {
 // satisfaction_rating - survey response data
 type SatisfactionRating struct {
 	Id          int64  `json:"id,omitempty"`
-	URL         string `json:"url,omitempty"`
 	AssigneeId  int64  `json:"assignee_id,omitempty"`
 	GroupId     int64  `json:"group_id,omitempty"`
 	RequesterId int64  `json:"requester_id,omitempty"`
@@ -167,7 +158,7 @@ type SatisfactionRating struct {
 	Score       string `json:"score,omitempty"`
 	CreatedAt   Utime  `json:"created_at,omitempty"`
 	UpdatedAt   Utime  `json:"updated_at,omitempty"`
-	Comment     string `json:"comment,omitempty"`
+	Reason     string `json:"comment,omitempty"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/users

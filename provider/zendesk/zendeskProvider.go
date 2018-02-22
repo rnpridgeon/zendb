@@ -47,7 +47,7 @@ func newZendeskSource(conf *ZendeskConfig, requestQueue chan *Task) (handle *ZDP
 
 func (p *ZDProvider) runTask(endpoint string, query string, onSuccess func(interface{})) {
 	req := p.getRequest()
-	req.URI().SetPath(endpoint)
+	req.URI().SetPath(ZDVersion+endpoint)
 	req.URI().SetQueryString(query)
 
 	task := AcquireTask(p.Errors)
@@ -73,37 +73,41 @@ func (p *ZDProvider) getRequest() (req *fasthttp.Request) {
 }
 
 func (p *ZDProvider) ExportGroups(onSuccess func(interface{})) {
-	p.runTask(ZDVersion+"groups.json", "", onSuccess)
+	p.runTask("groups.json", "", onSuccess)
 }
 
 func (p *ZDProvider) ExportOrganizations(onSuccess func(interface{}), since int64) {
-	p.runTask(ZDVersion+"incremental/organizations.json", "start_time="+strconv.FormatInt(since, 10), onSuccess)
+	p.runTask("incremental/organizations.json", "start_time="+strconv.FormatInt(since, 10), onSuccess)
 }
 
 func (p *ZDProvider) ExportOrganizationFields(onSucess func(interface{})) {
-	p.runTask(ZDVersion+"organization_fields.json", "", onSucess)
+	p.runTask("organization_fields.json", "", onSucess)
 }
 
 func (p *ZDProvider) ExportUsers(onSuccess func(interface{}), since int64) {
-	p.runTask(ZDVersion+"incremental/users.json", "start_time="+strconv.FormatInt(since, 10), onSuccess)
+	p.runTask("incremental/users.json", "start_time="+strconv.FormatInt(since, 10), onSuccess)
 }
 
 func (p *ZDProvider) ExportUserFields(onSucess func(interface{})) {
-	p.runTask(ZDVersion+"user_fields.json", "", onSucess)
+	p.runTask("user_fields.json", "", onSucess)
 }
 
 func (p *ZDProvider) ExportTickets(onSuccess func(interface{}), since int64) {
-	p.runTask(ZDVersion+"incremental/tickets.json", "start_time="+strconv.FormatInt(since, 10), onSuccess)
+	p.runTask("incremental/tickets.json", "start_time="+strconv.FormatInt(since, 10), onSuccess)
 }
 
 func (p *ZDProvider) ExportTicketFields(onSucess func(interface{})) {
-	p.runTask(ZDVersion+"ticket_fields.json", "", onSucess)
+	p.runTask("ticket_fields.json", "", onSucess)
+}
+
+func (p *ZDProvider) ExportCSAT(onSuccess func(interface{}), since int64) {
+	p.runTask("satisfaction_ratings.json", "start_time="+strconv.FormatInt(since, 10), onSuccess)
 }
 
 func (p *ZDProvider) FetchAudits(ticketID int64, onSuccess func(interface{})) {
-	p.runTask(ZDVersion+"tickets/"+strconv.FormatInt(ticketID, 10)+"/audits.json", "", onSuccess)
+	p.runTask("tickets/"+strconv.FormatInt(ticketID, 10)+"/audits.json", "", onSuccess)
 }
 
 func (p *ZDProvider) FetchMetrics(ticketID int64, onSuccess func(interface{})) {
-	p.runTask(ZDVersion+"tickets/"+strconv.FormatInt(ticketID, 10)+"/metrics.json", "", onSuccess)
+	p.runTask("tickets/"+strconv.FormatInt(ticketID, 10)+"/metrics.json", "", onSuccess)
 }

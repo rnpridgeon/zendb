@@ -18,16 +18,7 @@ import (
 )
 
 const (
-	ORGANIZATIONS = "organizations"
-	TICKETS       = "[]Tickets"
-)
-
-const (
-	//TODO:move connection string to configuration so we can leverage domain sockets and TCP
 	dsn                = "%v:%s@tcp(%s:%d)/zendb?charset=utf8"
-	sizeOf             = "SELECT COUNT(1) from %s WHERE id > 0 AND updatedat >= %d;"
-	fetchOrganizations = "SELECT * FROM organizations WHERE name NOT LIKE '%%deleted%%' AND id > 0 AND updatedat >= %d ORDER BY name asc;"
-	fetchTickets       = "SELECT * FROM tickets WHERE updatedat >= %d AND status != 'deleted' ORDER BY organizationid ASC, id DESC"
 )
 
 type MysqlConfig struct {
@@ -53,7 +44,7 @@ func Open(conf *MysqlConfig) *MysqlProvider {
 	err = db.Ping()
 
 	if err != nil {
-		log.Fatal("Failed to opend database: ", err)
+		log.Fatal("Failed to open database: ", err)
 	}
 
 	return &MysqlProvider{
@@ -262,5 +253,15 @@ func (p *MysqlProvider) ImportTicketMetrics(entities interface{}) {
 
 func (p *MysqlProvider) ImportAudit(entities interface{}) {
 	defer utils.TimeTrack(time.Now(), "Ticket Audit import")
+	p.processImport(entities)
+}
+
+func (p *MysqlProvider) ImportAuditChangeEvent(entities interface{}) {
+	defer utils.TimeTrack(time.Now(),  "Audit Change event import")
+	p.processImport(entities)
+}
+
+func (p *MysqlProvider) ImportCSAT(entities interface{}) {
+	defer utils.TimeTrack(time.Now(), "CSAT import")
 	p.processImport(entities)
 }

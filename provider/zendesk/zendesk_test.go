@@ -8,10 +8,13 @@ import (
 	"reflect"
 	"sync"
 	"testing"
+	"github.com/rnpridgeon/zendb/models"
+	"github.com/rnpridgeon/structs"
 )
 
 // Defined in driver_test.go
 var conf *ZendeskConfig
+
 
 //
 var testUris = [][]byte{
@@ -24,6 +27,16 @@ var testUris = [][]byte{
 	[]byte("https://confluent.zendesk.com/api/v2/groups.json"),
 }
 
+func TestTest(t *testing.T) {
+	a := models.Audit{}
+	e := models.ChangeEvent{}
+	fmt.Println(structs.FilterValues(a, "isKey", true))
+	fmt.Println(structs.FilterNames(a, "isKey", false))
+	fmt.Println(structs.FilterValues(e, "isKey", true))
+	fmt.Println(structs.FilterNames(e, "isKey", false))
+
+
+}
 func TestURIParser(t *testing.T) {
 	tests := []struct {
 		uri      []byte

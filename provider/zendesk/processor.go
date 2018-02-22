@@ -39,6 +39,8 @@ func resourceFactory(resource string) (ret interface{}) {
 		return &models.TicketMetric{}
 	case "audits":
 		return &[]models.Audit{}
+	case "satisfaction_ratings":
+		return &[]models.SatisfactionRating{}
 	default:
 		return nil
 	}
@@ -58,6 +60,8 @@ func PreProcess(data []byte) *RequestDescriptor {
 	var rd = &RequestDescriptor{}
 	for current := string(reader.NextMember()); len(current) > 0; {
 		switch current {
+		case "satisfaction_ratings":
+			fallthrough
 		case "groups":
 			fallthrough
 		case "organization", "organizations", "organization_fields":
@@ -120,7 +124,7 @@ func (t *Task) Process(requestQueue chan *Task) {
 		t.onSuccess(resource)
 	} else {
 		t.errors.Enqueue(t)
-		log.Printf("ERROR: Failed to deserialized payload %v \n", string(rd.Payload))
+		log.Printf("ERROR: Failed to deserialized payload %s %v \n", err,  string(rd.Payload))
 	}
 
 	fasthttp.ReleaseResponse(resp)
