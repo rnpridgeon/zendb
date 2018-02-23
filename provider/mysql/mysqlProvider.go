@@ -1,24 +1,23 @@
 package mysql
 
 import (
-	"bytes"
 	"fmt"
 	"log"
+	"time"
+	"bytes"
 	"reflect"
 	"strings"
-	"time"
-
 	"database/sql"
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/rnpridgeon/structs"
 	"github.com/rnpridgeon/utils"
+	"github.com/rnpridgeon/structs"
 	"github.com/rnpridgeon/utils/collections"
 )
 
 const (
-	dsn                = "%v:%s@tcp(%s:%d)/zendb?charset=utf8"
+	dsn = "%v:%s@tcp(%s:%d)/zendb?charset=utf8"
 )
 
 type MysqlConfig struct {

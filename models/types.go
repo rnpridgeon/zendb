@@ -1,8 +1,8 @@
 package models
 
 import (
-	"encoding/json"
 	"time"
+	"encoding/json"
 )
 
 type (

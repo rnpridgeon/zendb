@@ -17,9 +17,6 @@ var (
 )
 
 func Fetch(req *fasthttp.Request, resp *fasthttp.Response) (err error) {
-	if len(req.Host()) == 0 {
-		log.Fatal("Missing host %s", req.URI())
-	}
 	err = client.Do(req, resp)
 
 	if err != nil {
@@ -52,10 +49,6 @@ type FetchError struct {
 func (f *FetchError) Error() string {
 	return f.err
 }
-
-//func getVersion(req *fasthttp.Request) []byte {
-//	return req.URI().Path()[:VERSION_OVERHEAD]
-//}
 
 func getOption(req *fasthttp.Request) []byte {
 	path := req.URI().Path()

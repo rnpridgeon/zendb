@@ -5,11 +5,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/rnpridgeon/utils/configuration"
 	"github.com/rnpridgeon/zendb/models"
+	"github.com/rnpridgeon/utils/configuration"
 	"github.com/rnpridgeon/zendb/provider/mysql"
 	"github.com/rnpridgeon/zendb/provider/zendesk"
-	"fmt"
 )
 
 // TODO: make provider interface
