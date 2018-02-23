@@ -220,30 +220,30 @@ CREATE TABLE IF NOT EXISTS satisfactionrating (
 );
 
 /* For public consumption */
-CREATE VIEW TimeSpent AS SELECT ticket.id, max(changeevent.value) AS value
+CREATE OR REPLACE VIEW TimeSpent AS SELECT ticket.id, max(changeevent.value) AS value
   FROM ticket JOIN audit ON ticket.id = audit.ticketid
     JOIN changeevent ON changeevent.auditid = audit.id
   GROUP BY ticket.id ORDER BY ticket.id;
 
-CREATE VIEW TicketPriority AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS priority
+CREATE OR REPLACE VIEW TicketPriority AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS priority
                               FROM ticketdata WHERE title = 'Case Priority' ORDER BY objectID;
 
-CREATE VIEW TicketComponent AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS component
+CREATE OR REPLACE VIEW TicketComponent AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS component
                               FROM ticketdata WHERE title = 'Component' ORDER BY objectID;
 
-CREATE VIEW TicketTime AS SELECT TimeSpent.id AS ticketid, TimeSpent.value AS tickettime
+CREATE OR REPLACE VIEW TicketTime AS SELECT TimeSpent.id AS ticketid, TimeSpent.value AS tickettime
                                FROM TimeSpent ORDER BY TimeSpent.id;
 
-CREATE VIEW TicketCause AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS cause
+CREATE OR REPLACE VIEW TicketCause AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS cause
                           FROM ticketdata WHERE title = 'Root Cause' ORDER BY objectID;
 
-CREATE VIEW TicketVersion AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS version
+CREATE OR REPLACE VIEW TicketVersion AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS version
                            FROM ticketdata WHERE title = 'Confluent/Kafka Version' ORDER BY objectID;
 
-CREATE VIEW BundleUsage AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS bundleused
+CREATE OR REPLACE VIEW BundleUsage AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS bundleused
                            FROM ticketdata WHERE title = 'Support Bundle Used' ORDER BY objectID;
 
-CREATE VIEW TicketView AS
+CREATE OR REPLACE VIEW TicketView AS
   SELECT ticket.*, TicketPriority.priority, TicketComponent.component, TicketTime.ticketTime, TicketCause.cause,
     TicketVersion.version, BundleUsage.bundleused, ticketmetric.ttfr, ticketmetric.ttr, ticketmetric.solvedat,
     ticketmetric.agentwaittime,ticketmetric.requesterwaittime
@@ -257,13 +257,28 @@ FROM ticket
   JOIN BundleUsage ON ticket.id = BundleUsage.ticketid
 ORDER BY ticket.id;
 
+CREATE OR REPLACE VIEW OrganizationTam AS SELECT organizationdata.objectid AS organizationid, organizationdata.value as tam
+  FROM organizationdata WHERE title = 'technical_account_manager' ORDER BY objectid;
 
-# CREATE VIEW ticketview AS SELECT ticket.id, ticket.priority, organization.name AS organization, user.name AS requester,
-#                              ticket.status, ticket.component, ticket.version, FROM_UNIXTIME(ticket.createdat) AS createdat,
-# 														 FROM_UNIXTIME(ticket.updatedat) AS updatedat, ticketmetric.ttfr,
-# 														 FROM_UNIXTIME(ticketmetric.solvedat) AS solvedat
-#                            FROM ticket
-#                               JOIN organization ON ticket.organizationid = organization.id
-#                               JOIN user ON ticket.requesterid = user.id
-# 															JOIN ticketmetric on ticket.id = ticketmetric.ticketid;
-#
+CREATE OR REPLACE VIEW OrganizationRenewal AS SELECT organizationdata.objectid AS organizationid, organizationdata.value as renewaldate
+                               FROM organizationdata WHERE title = 'renewal_date' ORDER BY objectid;
+
+CREATE OR REPLACE VIEW OrganizationTZ AS SELECT organizationdata.objectid AS organizationid, organizationdata.value as timezone
+                                   FROM organizationdata WHERE title = 'primary_timezone' ORDER BY objectid;
+
+CREATE OR REPLACE VIEW OrganizationEntitlement AS SELECT organizationdata.objectid AS organizationid, organizationdata.value as entitlement
+                              FROM organizationdata WHERE title = 'subscription_type' ORDER BY objectid;
+
+CREATE OR REPLACE VIEW OrganizationSE AS SELECT organizationdata.objectid AS organizationid, organizationdata.value as se
+                              FROM organizationdata WHERE title = 'systems_engineer' ORDER BY objectid;
+
+CREATE OR REPLACE VIEW OrganizationView AS
+  SELECT organization.*, OrganizationEntitlement.entitlement, OrganizationRenewal.renewaldate, OrganizationSE.se,
+    OrganizationTam.tam, OrganizationTZ.timezone
+  FROM organization
+    JOIN OrganizationTam ON organization.id = OrganizationTam.organizationid
+    JOIN OrganizationRenewal ON organization.id = OrganizationRenewal.organizationid
+    JOIN OrganizationTZ ON organization.id = OrganizationTZ.organizationid
+    JOIN OrganizationSE ON organization.id = OrganizationSE.organizationid
+    JOIN OrganizationEntitlement ON organization.id = OrganizationEntitlement.organizationid
+  ORDER BY organization.id;
