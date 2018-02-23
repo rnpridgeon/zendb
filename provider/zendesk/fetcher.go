@@ -1,11 +1,10 @@
 package zendesk
 
 import (
+	"fmt"
 	"bytes"
 	"encoding/base64"
-	"fmt"
 	"github.com/valyala/fasthttp"
-	"log"
 )
 
 const versionOverhead = 7
