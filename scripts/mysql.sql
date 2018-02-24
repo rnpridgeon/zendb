@@ -244,10 +244,12 @@ CREATE OR REPLACE VIEW BundleUsage AS SELECT ticketdata.objectid AS ticketid, ti
                            FROM ticketdata WHERE title = 'Support Bundle Used' ORDER BY objectID;
 
 CREATE OR REPLACE VIEW TicketView AS
-  SELECT ticket.*, TicketPriority.priority, TicketComponent.component, TicketTime.ticketTime, TicketCause.cause,
+  SELECT ticket.id, ticket.createdat, ticket.status, ticket.subject,TicketPriority.priority, TicketComponent.component, TicketTime.ticketTime, TicketCause.cause,
     TicketVersion.version, BundleUsage.bundleused, ticketmetric.ttfr, ticketmetric.ttr, ticketmetric.solvedat,
     ticketmetric.agentwaittime,ticketmetric.requesterwaittime
 FROM ticket
+	JOIN organization on ticket.organizationid = organization.name
+	JOIN user on ticket.assigneeid = user.id
   JOIN ticketmetric ON ticket.id = ticketmetric.ticketid
   JOIN TicketPriority ON ticket.id = TicketPriority.ticketid
   JOIN TicketComponent ON ticket.id = TicketComponent.ticketid

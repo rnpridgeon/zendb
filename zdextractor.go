@@ -167,8 +167,9 @@ func main() {
 	configuration.FromFile(os.Args[1])(&conf)
 
 	sink = mysql.Open(conf.DBconf)
-	source = zendesk.Open(conf.ZDconf, requestQueue)
+	defer sink.Close()
 
+	source = zendesk.Open(conf.ZDconf, requestQueue)
 	stop := zendesk.NewDispatcher(requestQueue)
 
 	sink.RegisterTransformation("OrganizationFields", indexOrganizationFields(OrganizationFields))
@@ -215,7 +216,7 @@ func main() {
 	sink.ImportAuditChangeEvent(auditEvents)
 	sink.ImportTicketMetrics(metricUpdates)
 
-	// stop the dispatcher
+	// stop the dispatcher and close DB connection
 	stop <- struct{}{}
 
 	//TODO: The audits endpoint is spotty, post processing with a query can spot holes need to add method for filling them

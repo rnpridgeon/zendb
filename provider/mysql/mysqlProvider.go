@@ -55,6 +55,10 @@ func Open(conf *MysqlConfig) *MysqlProvider {
 	}
 }
 
+func (p *MysqlProvider) Close() {
+	p.dbClient.Close()
+}
+
 func (p *MysqlProvider) RegisterTransformation(target string, fn func(interface{}) interface{}) {
 	p.preEvent[target] = append(p.preEvent[target], fn)
 }
