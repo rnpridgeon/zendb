@@ -17,8 +17,9 @@
 
 From your GOPATH: 
 
-./src/github.com/rnpridgeon/zendb/util/setup.sh
-./bin/zendb ./src/github.com/rnpridgeon/zendb/exclude/conf.json
+1. `./src/github.com/rnpridgeon/zendb/util/setup.sh`
+
+2. `./bin/zendb ./src/github.com/rnpridgeon/zendb/exclude/conf.json`
 
 ### Schema Notes ###
 
