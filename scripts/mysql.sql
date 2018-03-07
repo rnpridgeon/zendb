@@ -219,6 +219,10 @@ CREATE TABLE IF NOT EXISTS satisfactionrating (
   REFERENCES groups(`id`)
 );
 
+create index auditKey on audit (ticketId);
+create index metricKey on ticketmetric (ticketId);
+
+
 /* For public consumption */
 CREATE OR REPLACE VIEW TimeSpent AS SELECT ticket.id, max(changeevent.value) AS value
   FROM ticket JOIN audit ON ticket.id = audit.ticketid
@@ -248,16 +252,16 @@ CREATE OR REPLACE VIEW TicketView AS
     TicketVersion.version, BundleUsage.bundleused, ticketmetric.ttfr, ticketmetric.ttr, ticketmetric.solvedat,
     ticketmetric.agentwaittime,ticketmetric.requesterwaittime
 FROM ticket
-	JOIN organization on ticket.organizationid = organization.name
+	JOIN organization on ticket.organizationid = organization.id
 	JOIN user on ticket.assigneeid = user.id
-  JOIN ticketmetric ON ticket.id = ticketmetric.ticketid
   JOIN TicketPriority ON ticket.id = TicketPriority.ticketid
   JOIN TicketComponent ON ticket.id = TicketComponent.ticketid
-  JOIN TicketTime ON ticket.id = TicketTime.ticketid
   JOIN TicketCause ON ticket.id = TicketCause.ticketid
   JOIN TicketVersion ON ticket.id = TicketVersion.ticketid
-  JOIN BundleUsage ON ticket.id = BundleUsage.ticketid
-ORDER BY ticket.id;
+  JOIN BundleUsage ON ticket.id = BundleUsage.ticketid LEFT OUTER
+	JOIN ticketmetric ON ticket.id = ticketmetric.ticketid LEFT OUTER
+	JOIN TicketTime ON ticket.id = TicketTime.ticketid
+	ORDER BY ticket.id;
 
 CREATE OR REPLACE VIEW OrganizationTam AS SELECT organizationdata.objectid AS organizationid, organizationdata.value as tam
   FROM organizationdata WHERE title = 'technical_account_manager' ORDER BY objectid;
