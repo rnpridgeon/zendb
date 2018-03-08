@@ -47,7 +47,7 @@ func newZendeskSource(conf *ZendeskConfig, requestQueue chan *Task) (handle *ZDP
 
 func (p *ZDProvider) runTask(endpoint string, query string, onSuccess func(interface{})) {
 	req := p.getRequest()
-	req.URI().SetPath(ZDVersion+endpoint)
+	req.URI().SetPath(ZDVersion + endpoint)
 	req.URI().SetQueryString(query)
 
 	task := AcquireTask(p.Errors)

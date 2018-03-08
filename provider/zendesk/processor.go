@@ -124,7 +124,7 @@ func (t *Task) Process(requestQueue chan *Task) {
 		t.onSuccess(resource)
 	} else {
 		t.errors.Enqueue(t)
-		log.Printf("ERROR: Failed to deserialized payload %s %v \n", err,  string(rd.Payload))
+		log.Printf("ERROR: Failed to deserialized payload %s %v \n", err, string(rd.Payload))
 	}
 
 	fasthttp.ReleaseResponse(resp)

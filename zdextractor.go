@@ -5,8 +5,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/rnpridgeon/zendb/models"
 	"github.com/rnpridgeon/utils/configuration"
+	"github.com/rnpridgeon/zendb/models"
 	"github.com/rnpridgeon/zendb/provider/mysql"
 	"github.com/rnpridgeon/zendb/provider/zendesk"
 )
@@ -126,7 +126,7 @@ func extractChangeEvents(lookup map[int64]string, events *[]models.ChangeEvent) 
 		e := obj.(models.Audit)
 		keep := false
 		//Time tracker id, annoying it can't be picked out of zd with a name
-		for idx, _ := range e.Events {
+		for idx := range e.Events {
 			fieldID, _ := strconv.ParseInt(e.Events[idx].FieldName, 10, 0)
 			if e.Events[idx].Type == "Change" && lookup[fieldID] == "Total time spent (sec)" {
 				keep = true

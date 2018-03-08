@@ -1,8 +1,8 @@
 package models
 
 import (
-	"time"
 	"encoding/json"
+	"time"
 )
 
 type (
@@ -63,19 +63,19 @@ type CustomFieldValue struct {
 // Notes: resource type: Data
 // tickets - basic ticket object
 type Ticket struct {
-	Id                 int64              `json:"id,omitempty" structs:",isKey"`
-	ExternalId         int64              `json:"external_id,omitempty"`
-	Subject            string             `json:"subject,omitempty"`
-	Status             string             `json:"status,omitempty"`
-	Recipient          string             `json:"recipient,omitempty"`
-	RequesterId        int64              `json:"requester_id,omitempty"`
-	SubmitterId        int64              `json:"submitter_id,omitempty"`
-	AssigneeId         int64              `json:"assignee_id,omitempty"`
-	OrganizationId     int64              `json:"organization_id,omitempty"`
-	GroupId            int64              `json:"group_id,omitempty"`
-	CustomFields       []TicketData       `json:"custom_fields,omitempty" structs:"-"`
-	CreatedAt          Utime              `json:"created_at,omitempty"`
-	UpdatedAt          Utime              `json:"updated_at,omitempty"`
+	Id             int64        `json:"id,omitempty" structs:",isKey"`
+	ExternalId     int64        `json:"external_id,omitempty"`
+	Subject        string       `json:"subject,omitempty"`
+	Status         string       `json:"status,omitempty"`
+	Recipient      string       `json:"recipient,omitempty"`
+	RequesterId    int64        `json:"requester_id,omitempty"`
+	SubmitterId    int64        `json:"submitter_id,omitempty"`
+	AssigneeId     int64        `json:"assignee_id,omitempty"`
+	OrganizationId int64        `json:"organization_id,omitempty"`
+	GroupId        int64        `json:"group_id,omitempty"`
+	CustomFields   []TicketData `json:"custom_fields,omitempty" structs:"-"`
+	CreatedAt      Utime        `json:"created_at,omitempty"`
+	UpdatedAt      Utime        `json:"updated_at,omitempty"`
 }
 
 type TicketEnhanced struct {
@@ -138,11 +138,11 @@ type Audit struct {
 // event - change metadata
 type ChangeEvent struct {
 	Id        int64       `json:"id,omitempty" structs:",isKey"`
-	AuditId	  int64		  `json:"-,omitempty" strcuts:",isKey"`
+	AuditId   int64       `json:"-,omitempty" strcuts:",isKey"`
 	Type      string      `json:"type,omitempty"`
 	FieldName string      `json:"field_name,omitempty"`
 	Value     interface{} `json:"value,omitempty"`
-	PValue 	  interface{} `json:"previous_value,omitempty"`
+	PValue    interface{} `json:"previous_value,omitempty"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/satisfaction_ratings
@@ -158,7 +158,7 @@ type SatisfactionRating struct {
 	Score       string `json:"score,omitempty"`
 	CreatedAt   Utime  `json:"created_at,omitempty"`
 	UpdatedAt   Utime  `json:"updated_at,omitempty"`
-	Reason     string `json:"comment,omitempty"`
+	Reason      string `json:"comment,omitempty"`
 }
 
 // Doc: https://developer.zendesk.com/rest_api/docs/core/users

@@ -3,18 +3,17 @@ package zendesk
 import (
 	"bytes"
 	"fmt"
+	"github.com/rnpridgeon/structs"
 	"github.com/rnpridgeon/utils/configuration"
+	"github.com/rnpridgeon/zendb/models"
 	"github.com/valyala/fasthttp"
 	"reflect"
 	"sync"
 	"testing"
-	"github.com/rnpridgeon/zendb/models"
-	"github.com/rnpridgeon/structs"
 )
 
 // Defined in driver_test.go
 var conf *ZendeskConfig
-
 
 //
 var testUris = [][]byte{
@@ -34,7 +33,6 @@ func TestTest(t *testing.T) {
 	fmt.Println(structs.FilterNames(a, "isKey", false))
 	fmt.Println(structs.FilterValues(e, "isKey", true))
 	fmt.Println(structs.FilterNames(e, "isKey", false))
-
 
 }
 func TestURIParser(t *testing.T) {

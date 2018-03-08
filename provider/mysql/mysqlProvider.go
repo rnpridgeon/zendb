@@ -1,18 +1,18 @@
 package mysql
 
 import (
+	"bytes"
+	"database/sql"
 	"fmt"
 	"log"
-	"time"
-	"bytes"
 	"reflect"
 	"strings"
-	"database/sql"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 
-	"github.com/rnpridgeon/utils"
 	"github.com/rnpridgeon/structs"
+	"github.com/rnpridgeon/utils"
 	"github.com/rnpridgeon/utils/collections"
 )
 
@@ -260,7 +260,7 @@ func (p *MysqlProvider) ImportAudit(entities interface{}) {
 }
 
 func (p *MysqlProvider) ImportAuditChangeEvent(entities interface{}) {
-	defer utils.TimeTrack(time.Now(),  "Audit Change event import")
+	defer utils.TimeTrack(time.Now(), "Audit Change event import")
 	p.processImport(entities)
 }
 
