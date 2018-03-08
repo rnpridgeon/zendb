@@ -10,10 +10,8 @@
   `export GOPATH=$(pwd)`
 4. Get source 
   `go get github.com/rnpridgeon/zendb`
-5. Build source 
-  `go install github.com/rnpridgeon/zendb`
 
-### Set-up ###
+### Set-up and run ###
 
 From your GOPATH: 
 
