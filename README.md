@@ -25,3 +25,7 @@ Base tables (names in all lower case) include raw data. These are almost certain
 
 Most users will want to make use of the tables with names styled in Camel case. These join the various base tables to make the data more user-friendly. 
 
+All base tables use Linux Epoch to store dates. These are easily converted to UTC Timestamps with FROM_UNIXTIME(date_field). If you want to set this to another timezeone you can do so with CONVERT_TZ(date_field, 'UTC', 'EST'). To get a listing of available timezones execute the following query as the mysql root user. 
+
+SELECT * FROM mysql.`time_zone_name`;
+
