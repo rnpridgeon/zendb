@@ -27,5 +27,5 @@ Most users will want to make use of the tables with names styled in Camel case. 
 
 All base tables use Linux Epoch to store dates. These are easily converted to UTC Timestamps with `FROM_UNIXTIME(date_field)`. If you want to set this to another timezeone you can do so with `CONVERT_TZ(FROM_UNIXTIME(date_field), 'UTC', 'EST')`. To get a listing of available timezones execute the following query as the mysql root user. 
 
-`SELECT * FROM mysql.\`time_zone_name\`;`
+`SELECT * FROM mysql.'time_zone_name';`
 
