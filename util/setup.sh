@@ -23,4 +23,4 @@ cat ../exampleConfig.json | jq ".zendesk.subdomain = \"$domain\"" | jq ".zendesk
 cd ..
 
 ./util/initdb.sh -s mysql
-go build github.com/rnpridgeon/zendb
+go install github.com/rnpridgeon/zendb
