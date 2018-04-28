@@ -192,8 +192,8 @@ CREATE TABLE IF NOT EXISTS changeevent (
 	auditid   BIGINT UNSIGNED NOT NULL,
 	type 			VARCHAR(255),
 	fieldname VARCHAR(255),
-	value			BIGINT DEFAULT -1,
-	pvalue		BIGINT DEFAULT -1,
+	value		VARCHAR(255),
+	pvalue		VARCHAR(255),
 	PRIMARY KEY (`id`, `auditid`),
 	FOREIGN KEY (`auditid`)
 		REFERENCES audit(`id`)
@@ -224,13 +224,18 @@ create index auditKey on audit (ticketId);
 create index metricKey on ticketmetric (ticketId);
 
 /* For public consumption */
-CREATE OR REPLACE VIEW TimeSpent AS SELECT ticket.id, max(changeevent.value) AS value
+CREATE OR REPLACE VIEW TimeSpent AS SELECT ticket.id, max(cast(changeevent.value AS UNSIGNED INTEGER )) AS value
 	FROM ticket JOIN audit ON ticket.id = audit.ticketid
 		JOIN changeevent ON changeevent.auditid = audit.id
+                JOIN ticketfields on ticketfields.id = changeevent.fieldname
+        where ticketfields.title = "Total time spent (sec)"
 	GROUP BY ticket.id ORDER BY ticket.id;
 
 CREATE OR REPLACE VIEW TicketTime AS SELECT TimeSpent.id AS ticketid, TimeSpent.value AS tickettime
 																		 FROM TimeSpent ORDER BY TimeSpent.id;
+
+CREATE OR REPLACE VIEW TicketInitialPriority AS select audit.ticketid as ticketid, pvalue as initialpriority from changeevent join audit on audit.id=changeevent.auditid join 
+(select min(changeevent.id) as firstChanged, audit.ticketid as ticketid from changeevent join ticketfields on changeevent.fieldname = ticketfields.id join audit on audit.id=changeevent.auditid where ticketfields.title="Case Priority" and pvalue > "" group by audit.ticketid) as f on f.firstChanged=changeevent.id;
 
 CREATE OR REPLACE VIEW TicketPriority AS SELECT ticketdata.objectid AS ticketid, ticketdata.value AS priority
 															FROM ticketdata WHERE title = 'Case Priority' ORDER BY objectID;
@@ -249,13 +254,15 @@ CREATE OR REPLACE VIEW BundleUsage AS SELECT ticketdata.objectid AS ticketid, ti
 
 CREATE OR REPLACE VIEW TicketView AS
 	SELECT ticket.id, organization.name as organization, FROM_UNIXTIME(ticket.createdat) as created, FROM_UNIXTIME(ticket.updatedat) as updated,
-		ticket.status, ticket.subject,TicketPriority.priority, TicketComponent.component, TicketTime.ticketTime, TicketCause.cause,
+		ticket.status, ticket.subject,TicketPriority.priority, ifnull(TicketInitialPriority.initialpriority,TicketPriority.priority) initialpriority,
+                TicketComponent.component, TicketTime.ticketTime, TicketCause.cause,
 		TicketVersion.version, BundleUsage.bundleused, ticketmetric.ttfr, ticketmetric.ttr, FROM_UNIXTIME(ticketmetric.solvedat) as solved,
 		ticketmetric.agentwaittime,ticketmetric.requesterwaittime
 FROM ticket
 	JOIN organization on ticket.organizationid = organization.id
 	JOIN user on ticket.assigneeid = user.id
 	JOIN TicketPriority ON ticket.id = TicketPriority.ticketid
+	LEFT JOIN TicketInitialPriority ON ticket.id = TicketInitialPriority.ticketid
 	JOIN TicketComponent ON ticket.id = TicketComponent.ticketid
 	JOIN TicketCause ON ticket.id = TicketCause.ticketid
 	JOIN TicketVersion ON ticket.id = TicketVersion.ticketid
