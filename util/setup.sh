@@ -22,5 +22,5 @@ cat ../exampleConfig.json | jq ".zendesk.subdomain = \"$domain\"" | jq ".zendesk
 
 cd ..
 
-./util/initdb.sh -s mysql
+./util/initdb.sh -s mysql:5.7.22
 go install github.com/rnpridgeon/zendb
