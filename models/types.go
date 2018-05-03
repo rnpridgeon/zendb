@@ -65,6 +65,7 @@ type CustomFieldValue struct {
 type Ticket struct {
 	Id             int64        `json:"id,omitempty" structs:",isKey"`
 	ExternalId     int64        `json:"external_id,omitempty"`
+	URL     		string 		`json:"url,omitempty"`
 	Subject        string       `json:"subject,omitempty"`
 	Status         string       `json:"status,omitempty"`
 	Recipient      string       `json:"recipient,omitempty"`

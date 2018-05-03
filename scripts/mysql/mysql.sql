@@ -141,6 +141,7 @@ INSERT INTO user (id) VALUES(0);
 CREATE TABLE IF NOT EXISTS ticket (
 	id				  		BIGINT UNSIGNED NOT NULL,
 	externalid			VARCHAR(255) DEFAULT "UNDEFINED",
+  url             VARCHAR(255) DEFAULT "UNDEFINED",
 	subject	        VARCHAR(255) NOT NULL,
 	status          VARCHAR(10) NOT NULL,
 	requesterid		BIGINT UNSIGNED DEFAULT 0,

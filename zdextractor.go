@@ -184,21 +184,21 @@ func main() {
 
 	sink.RegisterTransformation("Audit", extractChangeEvents(ticketFields, &auditEvents))
 
-	source.ExportTicketFields(sink.ImportTicketFields)
-	source.ExportOrganizationFields(sink.ImportOrganizationFields)
-	source.ExportUserFields(sink.ImportUserFields)
+	source.ExportTicketFields(sink.Flush)
+	source.ExportOrganizationFields(sink.Flush)
+	source.ExportUserFields(sink.Flush)
 
-	source.ExportGroups(sink.ImportGroups)
-	source.ExportOrganizations(sink.ImportOrganizations, sink.FetchOffset("organization"))
+	source.ExportGroups(sink.Flush)
+	source.ExportOrganizations(sink.Flush, sink.FetchOffset("organization"))
 	zendesk.WG.Wait()
 
-	source.ExportUsers(sink.ImportUsers, sink.FetchOffset("user"))
+	source.ExportUsers(sink.Flush, sink.FetchOffset("user"))
 	zendesk.WG.Wait()
 
-	source.ExportTickets(sink.ImportTickets, sink.FetchOffset("ticket"))
+	source.ExportTickets(sink.Flush, sink.FetchOffset("ticket"))
 	zendesk.WG.Wait()
 
-	source.ExportCSAT(sink.ImportCSAT, sink.FetchOffset("satisfactionrating"))
+	source.ExportCSAT(sink.Flush, sink.FetchOffset("satisfactionrating"))
 
 	// Amortize the cost of prepared statements by batching individual requests
 	for _, i := range needsUpdate {
@@ -208,13 +208,13 @@ func main() {
 
 	zendesk.WG.Wait()
 
-	sink.ImportOrganizationCustomFields(organizationFieldValues)
-	sink.ImportUserCustomFields(userFieldValues)
-	sink.ImportTicketCustomFields(ticketFieldValues)
+	sink.Flush(organizationFieldValues)
+	sink.Flush(userFieldValues)
+	sink.Flush(ticketFieldValues)
 
-	sink.ImportAudit(auditUpdates)
-	sink.ImportAuditChangeEvent(auditEvents)
-	sink.ImportTicketMetrics(metricUpdates)
+	sink.Flush(auditUpdates)
+	sink.Flush(auditEvents)
+	sink.Flush(metricUpdates)
 
 	// stop the dispatcher and close DB connection
 	stop <- struct{}{}
