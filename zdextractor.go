@@ -128,7 +128,10 @@ func extractChangeEvents(lookup map[int64]string, events *[]models.ChangeEvent) 
 		//Time tracker id, annoying it can't be picked out of zd with a name
 		for idx := range e.Events {
 			fieldID, _ := strconv.ParseInt(e.Events[idx].FieldName, 10, 0)
-			if e.Events[idx].Type == "Change" && ( lookup[fieldID] == "Total time spent (sec)" || lookup[fieldID] == "Case Priority" ){
+			if e.Events[idx].Type == "Change" &&
+				( lookup[fieldID] == "Total time spent (sec)" ||
+					lookup[fieldID] == "Case Priority" ||
+					lookup[fieldID] == "Time spent last update (sec)"){
 				keep = true
 				e.Events[idx].AuditId = e.Id
 				*events = append(*events, e.Events[idx])
