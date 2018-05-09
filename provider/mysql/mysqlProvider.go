@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	dsn = "%v:%s@tcp(%s:%d)/zendb?charset=utf8"
+	dsn = "%v:%s@tcp(%s:%d)/zendb?charset=utf8&tls=skip-verify"
 )
 
 type MysqlConfig struct {
