@@ -21,10 +21,10 @@
 
 From your GOPATH: 
 
-1. `./src/github.com/rnpridgeon/zendb/util/setup.sh`
+1. `./src/github.com/rnpridgeon/zendb/util/setup.sh` 
+	a. Note: append "/token" to the username if using an API key as the password. 
 
 2. `./bin/zendb ./src/github.com/rnpridgeon/zendb/exclude/conf.json`
-  a. An api key can be used as the password is the user ends in "/token"
 
 ### Usage Notes ###
 
