@@ -4,6 +4,8 @@
 
 ### Installation ###
 
+* Install mysql client (on mac OS ) 
+  ** `brew install mysql`
 * Install Bash Coreutils ( on mac OS )
   ** `brew install coreutils`
 * Install jq ( on mac OS )
