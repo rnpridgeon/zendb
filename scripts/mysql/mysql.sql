@@ -254,23 +254,49 @@ CREATE OR REPLACE VIEW BundleUsage AS SELECT ticketdata.objectid AS ticketid, ti
 													 FROM ticketdata WHERE title = 'Support Bundle Used' ORDER BY objectID;
 
 CREATE OR REPLACE VIEW TicketView AS
-	SELECT ticket.id, organization.name as organization, FROM_UNIXTIME(ticket.createdat) as created, FROM_UNIXTIME(ticket.updatedat) as updated,
-		ticket.status, ticket.subject,TicketPriority.priority, ifnull(TicketInitialPriority.initialpriority,TicketPriority.priority) initialpriority,
-                TicketComponent.component, TicketTime.ticketTime, TicketCause.cause,
-		TicketVersion.version, BundleUsage.bundleused, ticketmetric.ttfr, ticketmetric.ttr, FROM_UNIXTIME(ticketmetric.solvedat) as solved,
-		ticketmetric.agentwaittime,ticketmetric.requesterwaittime
+SELECT ticket.id,
+       organization.name AS organization,
+       FROM_UNIXTIME(ticket.createdat) AS created,
+       FROM_UNIXTIME(ticket.updatedat) AS updated,
+       CASE ticket.recipient 
+         WHEN 'support-escalations@confluent.zendesk.com' THEN "escalation"
+         WHEN 'escalations@confluent.io' THEN "escalation"
+         WHEN 'se-support@confluent.io' THEN "se-support"
+         WHEN 'se-support@confluent.zendesk.com' THEN "se-support"
+         WHEN 'support@confluent.io' THEN "enterprise"
+         WHEN 'support@confluent.zendesk.com' THEN "enterprise"
+         WHEN 'cloud-support@confluent.zendesk.com' THEN "cloud-professional"
+         WHEN 'cloud-support@confluent.io' THEN "cloud-professional"
+         ELSE "enterprise"
+       END as type,
+       ticket.status,
+       ticket.subject,
+       TicketPriority.priority,
+       ifnull(TicketInitialPriority.initialpriority,TicketPriority.priority) initialpriority,
+       TicketComponent.component,
+       TicketTime.ticketTime,
+       TicketCause.cause,
+       TicketVersion.version,
+       BundleUsage.bundleused,
+       ticketmetric.ttfr,
+       ticketmetric.ttr,
+       FROM_UNIXTIME(ticketmetric.solvedat) AS solved,
+       ticketmetric.agentwaittime,
+       ticketmetric.requesterwaittime
 FROM ticket
-	JOIN organization on ticket.organizationid = organization.id
-	JOIN user on ticket.assigneeid = user.id
-	JOIN TicketPriority ON ticket.id = TicketPriority.ticketid
-	LEFT JOIN TicketInitialPriority ON ticket.id = TicketInitialPriority.ticketid
-	JOIN TicketComponent ON ticket.id = TicketComponent.ticketid
-	JOIN TicketCause ON ticket.id = TicketCause.ticketid
-	JOIN TicketVersion ON ticket.id = TicketVersion.ticketid
-	JOIN BundleUsage ON ticket.id = BundleUsage.ticketid LEFT OUTER
-	JOIN ticketmetric ON ticket.id = ticketmetric.ticketid LEFT OUTER
-	JOIN TicketTime ON ticket.id = TicketTime.ticketid
-	ORDER BY ticket.id;
+JOIN organization ON ticket.organizationid = organization.id
+JOIN user ON ticket.assigneeid = user.id
+JOIN TicketPriority ON ticket.id = TicketPriority.ticketid
+LEFT JOIN TicketInitialPriority ON ticket.id = TicketInitialPriority.ticketid
+JOIN TicketComponent ON ticket.id = TicketComponent.ticketid
+JOIN TicketCause ON ticket.id = TicketCause.ticketid
+JOIN TicketVersion ON ticket.id = TicketVersion.ticketid
+JOIN BundleUsage ON ticket.id = BundleUsage.ticketid
+LEFT OUTER
+        JOIN ticketmetric ON ticket.id = ticketmetric.ticketid
+LEFT OUTER
+        JOIN TicketTime ON ticket.id = TicketTime.ticketid
+ORDER by ticket.id;
 
 CREATE OR REPLACE VIEW OrganizationTam AS SELECT organizationdata.objectid AS organizationid, organizationdata.value as tam
 	FROM organizationdata WHERE title = 'technical_account_manager' ORDER BY objectid;
