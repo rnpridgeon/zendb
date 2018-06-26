@@ -38,11 +38,13 @@ type MysqlProvider struct {
 }
 
 func Open(conf *MysqlConfig) *MysqlProvider {
+        var db *sql.DB
+        var err error
         if conf.Hostname == "127.0.0.1" {
-	   db, err := sql.Open(conf.Type, fmt.Sprintf(dsn,
+	   db, err = sql.Open(conf.Type, fmt.Sprintf(dsn,
 		conf.User, conf.Password, conf.Hostname, conf.Port))
         }else{
-	   db, err := sql.Open(conf.Type, fmt.Sprintf(dsn_tls,
+	   db, err = sql.Open(conf.Type, fmt.Sprintf(dsn_tls,
 		conf.User, conf.Password, conf.Hostname, conf.Port))
         }
 
