@@ -12,7 +12,7 @@ init () {
 
 configure() {
 	BASE=$(realpath ./)
-	SQL="$(realpath ../scripts)"
+	SQL="$(realpath ../scripts/mysql)"
 	echo $BASE
 	# Read configuration file 
 	newProperties ../exclude/conf.json

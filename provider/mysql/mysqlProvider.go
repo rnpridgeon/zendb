@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	dsn = "%v:%s@tcp(%s:%d)/zendb?charset=utf8"
+	dsn = "%v:%s@tcp(%s:%d)/zendb?charset=utf8&tls=skip-verify"
 )
 
 type MysqlConfig struct {
@@ -76,12 +76,12 @@ func (p *MysqlProvider) ExecRaw(qry string) int64 {
 	return ret
 }
 
-func (p *MysqlProvider) processUpdate(tx *sql.Tx, entity interface{}) {
+func (p *MysqlProvider) processUpdate(tx *sql.Tx, entity interface{}, name string) {
 
 	var stmt *sql.Stmt
 	var err error
 
-	stmt, err = tx.Prepare(p.registerUpdate(entity))
+	stmt, err = tx.Prepare(p.registerUpdate(entity, name))
 
 	if err != nil {
 		log.Printf("SQLException: Failed to create statement, placing batch on error queue\n %s", err)
@@ -109,7 +109,12 @@ func (p *MysqlProvider) processImport(entities interface{}) {
 	tx, _ := p.dbClient.Begin()
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(p.registerInsert(ctx.Index(0).Interface()))
+	obj := ctx.Index(0).Interface()
+	name := structs.Name(obj)
+
+	defer utils.TimeTrack(time.Now(), fmt.Sprintf("%s import", name))
+
+	stmt, err := tx.Prepare(p.registerInsert(obj, name))
 
 	if err != nil {
 		p.Errors.Enqueue(err)
@@ -118,9 +123,9 @@ func (p *MysqlProvider) processImport(entities interface{}) {
 	}
 
 	for i := 0; i < ctx.Len(); i++ {
-		obj := ctx.Index(i).Interface()
+		obj = ctx.Index(i).Interface()
 
-		for _, f := range p.preEvent[structs.Name(obj)] {
+		for _, f := range p.preEvent[name] {
 			obj = f(obj)
 		}
 
@@ -133,7 +138,7 @@ func (p *MysqlProvider) processImport(entities interface{}) {
 		if err != nil {
 			switch err.(*mysql.MySQLError).Number {
 			case 1062:
-				p.processUpdate(tx, obj)
+				p.processUpdate(tx, obj, name)
 				break
 			default:
 				p.Errors.Enqueue(obj)
@@ -147,13 +152,13 @@ func (p *MysqlProvider) processImport(entities interface{}) {
 	tx.Commit()
 }
 
-func (p *MysqlProvider) registerUpdate(i interface{}) (qry string) {
-	if qry, found := p.updates[structs.Name(i)]; found {
+func (p *MysqlProvider) registerUpdate(i interface{}, name string) (qry string) {
+	if qry, found := p.updates[name]; found {
 		return qry
 	}
 
 	b := bytes.NewBufferString("UPDATE ")
-	b.WriteString(strings.ToLower(structs.Name(i)))
+	b.WriteString(strings.ToLower(name))
 
 	fields := structs.FilterNames(i, "isKey", true)
 	keys := structs.FilterNames(i, "isKey", false)
@@ -169,17 +174,17 @@ func (p *MysqlProvider) registerUpdate(i interface{}) (qry string) {
 	b.WriteString(";")
 
 	log.Printf("INFO: Registering new update query with provider\n%s\n", b.Bytes())
-	p.updates[structs.Name(i)] = b.String()
+	p.updates[name] = b.String()
 	return b.String()
 }
 
-func (p *MysqlProvider) registerInsert(i interface{}) (qry string) {
-	if qry, ok := p.inserts[structs.Name(i)]; ok {
+func (p *MysqlProvider) registerInsert(i interface{}, name string) (qry string) {
+	if qry, ok := p.inserts[name]; ok {
 		return qry
 	}
 
 	b := bytes.NewBufferString("INSERT INTO ")
-	b.WriteString(strings.ToLower(structs.Name(i)))
+	b.WriteString(strings.ToLower(name))
 
 	fields := structs.Names(i)
 	b.WriteString("(" + strings.ToLower(fields[0]))
@@ -194,77 +199,12 @@ func (p *MysqlProvider) registerInsert(i interface{}) (qry string) {
 	b.WriteString(") ")
 
 	log.Printf("INFO: Registering new Insert query with provider\n%s\n", b.Bytes())
-	p.inserts[structs.Name(i)] = b.String()
+	p.inserts[name] = b.String()
 
 	return b.String()
 }
 
-func (p *MysqlProvider) ImportTicketFields(entities interface{}) {
+func (p *MysqlProvider) Flush(entities interface{}) {
 	defer utils.TimeTrack(time.Now(), "Ticket Fields import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportTicketCustomFields(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Ticket Custom Field import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportGroups(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Group import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportOrganizations(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Organization import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportOrganizationFields(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Organization Fields import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportOrganizationCustomFields(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Organization Custom Field import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportUsers(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "User import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportUserFields(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "User Fields import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportUserCustomFields(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "User Custom Field import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportTickets(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Ticket import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportTicketMetrics(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Ticket Metrics import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportAudit(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Ticket Audit import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportAuditChangeEvent(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "Audit Change event import")
-	p.processImport(entities)
-}
-
-func (p *MysqlProvider) ImportCSAT(entities interface{}) {
-	defer utils.TimeTrack(time.Now(), "CSAT import")
 	p.processImport(entities)
 }
